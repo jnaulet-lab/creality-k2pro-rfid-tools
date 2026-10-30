@@ -1,0 +1,26 @@
+{
+  "id": "90001",
+  "brand": "eSun",
+  "name": "eSun PLA-Basic",
+  "alias": "",
+  "meterialType": "PLA",
+  "colors": [
+    "#ffffff"
+  ],
+  "density": 1.24,
+  "diameter": "1.75",
+  "costPerMeter": 0,
+  "weightPerMeter": 0,
+  "rank": 3000,
+  "minTemp": 210,
+  "maxTemp": 230,
+  "isSoluble": false,
+  "isSupport": false,
+  "shrinkageRate": 0,
+  "softeningTemp": 0,
+  "dryingTemp": 55,
+  "dryingTime": 8,
+  "dryingTempLow": 50,
+  "dryingTempHigh": 70,
+  "mixColorInfoList": null
+}

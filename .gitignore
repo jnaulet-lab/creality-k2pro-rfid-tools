@@ -1,0 +1,21 @@
+# Secrets - never commit / ne jamais publier
+secrets.yaml
+.env
+*.pem
+*.key
+
+# Printer catalog: commit only small examples, not a full copy of the
+# Creality catalog or your own backups
+# Catalogue imprimante : ne publier que de petits exemples, pas une copie
+# complète du catalogue Creality ni tes sauvegardes
+material_database*.json
+!docs/example-entry-base.json
+*.bak
+*.bak-*
+
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/

@@ -1,0 +1,15 @@
+creality-k2pro-rfid-tools - Licences
+
+Copyright (c) 2026 jnaulet-lab
+
+Ce dépôt combine plusieurs types de contenus, chacun sous sa licence.
+Les textes complets sont dans le dossier LICENSES/.
+
+- Configuration Home Assistant et outils (homeassistant/, tools/)
+  Licence MIT                          -> LICENSES/MIT.txt
+
+- Modèles 3D et documentation (3d-models/, docs/)
+  Licence CC BY-SA 4.0                 -> LICENSES/CC-BY-SA-4.0.txt
+
+Pour tout fichier non couvert explicitement, la licence du dossier
+parent s'applique.

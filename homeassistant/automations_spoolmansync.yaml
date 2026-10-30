@@ -1,0 +1,366 @@
+# Automations SpoolmanSync pour Creality K2 Pro + CFS
+# Copier ces 3 automations dans automations.yaml (ou les recréer en mode YAML dans l'UI).
+# Remplace 'k2pro_creality' par le nom de ton imprimante dans HA si besoin.
+# SpoolmanSync / Spoolman automations for Creality K2 Pro + CFS (see README).
+
+- id: spoolmansync_update_spool_k2pro_creality
+  alias: SpoolmanSync - Update Spool (k2pro_creality)
+  description: Track spool usage and sync with Spoolman (Creality)
+  triggers:
+  - entity_id: sensor.spoolmansync_k2pro_creality_active_tray
+    id: tray
+    not_from:
+    - unavailable
+    - unknown
+    not_to:
+    - unavailable
+    - unknown
+    trigger: state
+  - entity_id: sensor.k2pro_creality_print_status
+    to:
+    - completed
+    - idle
+    id: print_end
+    trigger: state
+  - entity_id: sensor.k2pro_creality_print_status
+    to:
+    - 'off'
+    - offline
+    for: 00:02:00
+    id: offline
+    trigger: state
+  variables:
+    old_tray: "{% if trigger.id == 'tray' and trigger.from_state is not none and trigger.from_state.state
+      not in [None, '', 'unknown', 'unavailable'] %}\n  {{ trigger.from_state.state
+      | int(-1) }}\n{% else %}\n  -1\n{% endif %}"
+    new_tray: "{% if trigger.id == 'tray' and trigger.to_state is not none and trigger.to_state.state
+      not in [None, '', 'unknown', 'unavailable'] %}\n  {{ trigger.to_state.state
+      | int(-1) }}\n{% else %}\n  -1\n{% endif %}"
+    helper_tray: '{{ states(''input_number.spoolmansync_k2pro_creality_last_tray'')
+      | int(-1) }}'
+    tray_composite: "{% if trigger.id == 'print_end' %}\n  {{ helper_tray }}\n{% else
+      %}\n  {{ old_tray if old_tray >= 0 else helper_tray }}\n{% endif %}"
+    tray_sensor: '{% if tray_composite == 0 %}sensor.k2pro_creality_cfs_external_filament{%
+      endif %}{% if tray_composite == 11 %}sensor.k2pro_creality_cfs_box_1_slot_1_filament{%
+      endif %}{% if tray_composite == 12 %}sensor.k2pro_creality_cfs_box_1_slot_2_filament{%
+      endif %}{% if tray_composite == 13 %}sensor.k2pro_creality_cfs_box_1_slot_3_filament{%
+      endif %}{% if tray_composite == 14 %}sensor.k2pro_creality_cfs_box_1_slot_4_filament{%
+      endif %}'
+    tray_usage_cm: '{{ states(''sensor.spoolmansync_k2pro_creality_filament_usage_meter'')
+      | float(0) | round(2) }}'
+    material_code: '{{ state_attr(tray_sensor, ''rfid'') | default('''') }}'
+    material: '{{ state_attr(tray_sensor, ''type'') | default('''') }}'
+    name: '{{ state_attr(tray_sensor, ''name'') | default('''') }}'
+    color: '{{ state_attr(tray_sensor, ''color_hex'') | default('''') }}'
+  actions:
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ trigger.id == ''tray'' }}'
+      sequence:
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: "{{ tray_composite >= 0 and tray_usage_cm >= 0.01 and
+              tray_sensor != ''\n   and (old_tray >= 0 or (new_tray >= 0 and new_tray
+              != tray_composite)) }}"
+          sequence:
+          - action: system_log.write
+            data:
+              message: 'SPOOLMANSYNC TRAY CHANGE (Creality) | Old tray {{ old_tray
+                }} -> New tray {{ new_tray }} | Flush tray {{ tray_composite }} |
+                Sensor: {{ tray_sensor }} | Spool: {{ name }} ({{ material }}) | Length
+                used: {{ tray_usage_cm }}cm | Material code: {{ material_code }}'
+              level: info
+          - action: rest_command.spoolmansync_update_spool
+            data:
+              filament_name: '{{ name }}'
+              filament_material: '{{ material }}'
+              filament_tray_uuid: ''
+              filament_used_length: '{{ tray_usage_cm }}'
+              filament_color: '{{ color }}'
+              filament_active_tray_id: '{{ tray_sensor }}'
+          - action: utility_meter.calibrate
+            target:
+              entity_id: sensor.spoolmansync_k2pro_creality_filament_usage_meter
+            data:
+              value: '0'
+        - conditions:
+          - condition: template
+            value_template: '{{ old_tray >= 0 }}'
+          sequence:
+          - action: system_log.write
+            data:
+              message: 'SPOOLMANSYNC TRAY CHANGE (Creality, no usage logged) | Old:
+                {{ old_tray }} -> New: {{ new_tray }} | Length: {{ tray_usage_cm }}cm
+                | Reason: {{ ''no length to log'' if tray_usage_cm < 0.01 else ''slot
+                sensor not found'' }}'
+              level: '{{ ''warning'' if tray_usage_cm >= 0.01 else ''debug'' }}'
+          - action: utility_meter.calibrate
+            target:
+              entity_id: sensor.spoolmansync_k2pro_creality_filament_usage_meter
+            data:
+              value: '0'
+        default:
+        - action: system_log.write
+          data:
+            message: 'SPOOLMANSYNC TRAY CHANGE (Creality, meter preserved) | Old:
+              {{ old_tray }} -> New: {{ new_tray }} | Length: {{ tray_usage_cm }}cm
+              | Last tray: {{ helper_tray }}'
+            level: info
+      - condition: template
+        value_template: '{{ new_tray >= 0 }}'
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.spoolmansync_k2pro_creality_last_tray
+        data:
+          value: '{{ new_tray }}'
+      - action: system_log.write
+        data:
+          message: SPOOLMANSYNC HELPER UPDATED | input_number.spoolmansync_k2pro_creality_last_tray
+            -> {{ new_tray }}
+          level: info
+    - conditions:
+      - condition: template
+        value_template: "{{ trigger.id == 'print_end'\n   and trigger.from_state is
+          not none\n   and trigger.from_state.state not in ['unavailable', 'unknown',
+          'idle', 'completed', 'none'] }}"
+      sequence:
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: '{{ tray_composite >= 0 and tray_usage_cm >= 0.01 and
+              tray_sensor != '''' }}'
+          sequence:
+          - action: system_log.write
+            data:
+              message: 'SPOOLMANSYNC PRINT END (Creality) | Tray {{ tray_composite
+                }} | Sensor: {{ tray_sensor }} | Spool: {{ name }} ({{ material }})
+                | Length used: {{ tray_usage_cm }}cm | Material code: {{ material_code
+                }}'
+              level: info
+          - action: rest_command.spoolmansync_update_spool
+            data:
+              filament_name: '{{ name }}'
+              filament_material: '{{ material }}'
+              filament_tray_uuid: ''
+              filament_used_length: '{{ tray_usage_cm }}'
+              filament_color: '{{ color }}'
+              filament_active_tray_id: '{{ tray_sensor }}'
+        default:
+        - action: system_log.write
+          data:
+            message: 'SPOOLMANSYNC PRINT END (Creality, skipped) | Tray: {{ tray_composite
+              }} | Length: {{ tray_usage_cm }}cm | Reason: {{ ''no tray in helper''
+              if tray_composite < 0 else ''no length'' }}'
+            level: '{{ ''warning'' if tray_usage_cm >= 0.01 else ''info'' }}'
+      - action: utility_meter.calibrate
+        target:
+          entity_id: sensor.spoolmansync_k2pro_creality_filament_usage_meter
+        data:
+          value: '0'
+      - action: system_log.write
+        data:
+          message: SPOOLMANSYNC METER RESET after print end (Creality)
+          level: info
+    - conditions:
+      - condition: template
+        value_template: '{{ trigger.id == ''offline'' }}'
+      sequence:
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: '{{ tray_composite >= 0 and tray_usage_cm >= 0.01 and
+              tray_sensor != '''' }}'
+          sequence:
+          - action: system_log.write
+            data:
+              message: 'SPOOLMANSYNC OFFLINE FLUSH (Creality) | Tray {{ tray_composite
+                }} | Sensor: {{ tray_sensor }} | Length used: {{ tray_usage_cm }}cm'
+              level: info
+          - action: rest_command.spoolmansync_update_spool
+            data:
+              filament_name: '{{ name }}'
+              filament_material: '{{ material }}'
+              filament_tray_uuid: ''
+              filament_used_length: '{{ tray_usage_cm }}'
+              filament_color: '{{ color }}'
+              filament_active_tray_id: '{{ tray_sensor }}'
+        default:
+        - action: system_log.write
+          data:
+            message: 'SPOOLMANSYNC OFFLINE FLUSH (Creality, skipped) | Tray: {{ tray_composite
+              }} | Length: {{ tray_usage_cm }}cm | Reason: {{ ''no tray in helper''
+              if tray_composite < 0 else ''no length'' if tray_usage_cm < 0.01 else
+              ''tray sensor not found'' }}'
+            level: '{{ ''warning'' if tray_usage_cm >= 0.01 else ''info'' }}'
+      - action: utility_meter.calibrate
+        target:
+          entity_id: sensor.spoolmansync_k2pro_creality_filament_usage_meter
+        data:
+          value: '0'
+      - action: system_log.write
+        data:
+          message: SPOOLMANSYNC METER RESET (printer offline) | k2pro_creality
+          level: info
+  mode: single
+- id: spoolmansync_tray_change_k2pro_creality
+  alias: SpoolmanSync - Tray Change (k2pro_creality)
+  description: Detect physical spool changes in CFS and auto-assign/unassign in Spoolman
+  triggers:
+  - entity_id:
+    - sensor.k2pro_creality_cfs_external_filament
+    - sensor.k2pro_creality_cfs_box_1_slot_1_filament
+    - sensor.k2pro_creality_cfs_box_1_slot_2_filament
+    - sensor.k2pro_creality_cfs_box_1_slot_3_filament
+    - sensor.k2pro_creality_cfs_box_1_slot_4_filament
+    trigger: state
+  conditions:
+  - condition: template
+    value_template: '{{ trigger.to_state is not none and trigger.to_state.state not
+      in [''unavailable'', ''unknown''] }}'
+  - condition: template
+    value_template: "{{ trigger.from_state is none or trigger.to_state is none or\n
+      \  trigger.to_state.attributes.get('rfid', '') != trigger.from_state.attributes.get('rfid',
+      '') or\n   trigger.to_state.attributes.get('name', '') != trigger.from_state.attributes.get('name',
+      '') }}"
+  variables:
+    tray_entity_id: '{{ trigger.entity_id }}'
+    material_code: '{{ state_attr(trigger.entity_id, ''rfid'') | default('''') }}'
+    name: '{{ state_attr(trigger.entity_id, ''name'') | default('''') }}'
+    material: '{{ state_attr(trigger.entity_id, ''type'') | default('''') }}'
+    color: '{{ state_attr(trigger.entity_id, ''color_hex'') | default('''') }}'
+  actions:
+  - action: system_log.write
+    data:
+      message: 'SPOOLMANSYNC TRAY CHANGE DETECTED (Creality) | {{ tray_entity_id }}
+        | Name: {{ name }} | Material: {{ material }} | Material code: {{ material_code
+        }} | Color: {{ color }}'
+      level: info
+  - action: rest_command.spoolmansync_tray_change
+    data:
+      tray_entity_id: '{{ tray_entity_id }}'
+      tray_uuid: ''
+      name: '{{ name }}'
+      material: '{{ material }}'
+      color: '{{ color }}'
+      current_print_state: '{{ states(''sensor.k2pro_creality_print_status'') }}'
+  mode: queued
+  max: 10
+- id: spoolmansync_auto_assign_cfs_slot
+  alias: SpoolmanSync - Assigner automatiquement la bobine au slot du CFS
+  description: 'Quand un slot du CFS lit une puce (spool_key change), cherche dans
+    Spoolman les bobines non archivées du même fabricant, matériau et couleur, et
+    assigne la meilleure au slot. S''il y en a plusieurs, prend la bobine déjà entamée
+    qui a le moins de filament restant, sinon la première de la liste. Par défaut
+    en mode test (dry_run) : notification seulement.'
+  triggers:
+  - trigger: state
+    entity_id:
+    - sensor.k2pro_creality_cfs_box_1_slot_1_filament
+    - sensor.k2pro_creality_cfs_box_1_slot_2_filament
+    - sensor.k2pro_creality_cfs_box_1_slot_3_filament
+    - sensor.k2pro_creality_cfs_box_1_slot_4_filament
+    attribute: spool_key
+    id: cfs
+  - trigger: state
+    entity_id: sensor.k2pro_creality_cfs_external_filament
+    id: external
+  conditions:
+  - condition: template
+    value_template: >-
+      {% set st = trigger.to_state %}
+      {% set prev = trigger.from_state %}
+      {% if st is none or st.state in ['unavailable', 'unknown'] %}
+        false
+      {% elif trigger.id == 'external' %}
+        {% set chg = namespace(v=(prev is none)) %}
+        {% if prev is not none %}
+          {% for k in ['rfid', 'name', 'type', 'color_hex', 'vendor'] %}
+            {% if st.attributes.get(k, '') != prev.attributes.get(k, '') %}{% set chg.v = true %}{% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ (st.attributes.get('type', '') | string | lower) not in ['', 'none', 'unknown', 'unavailable'] and chg.v }}
+      {% else %}
+        {{ (st.attributes.get('spool_key', '') | string | lower) not in ['', 'none', 'unknown', 'unavailable'] }}
+      {% endif %}
+  actions:
+  - variables:
+      dry_run: true   # <- passe à false pour activer l'assignation réelle
+      printer_ip: 192.168.1.XXX   # <- IP de ton imprimante (la même que dans SpoolmanSync)
+      # Cle de plateau de la bobine externe (a verifier, voir explications)
+      external_tray: cfs_external_filament
+  - variables:
+      slot_name: '{{ trigger.entity_id.split(''.'')[1] | replace(''k2pro_creality_'',
+        '''') }}'
+      vendor: '{{ trigger.to_state.attributes.get(''vendor'', '''') | string | lower
+        }}'
+      material: '{{ trigger.to_state.attributes.get(''type'', '''') | string | lower
+        }}'
+      color: '{{ trigger.to_state.attributes.get(''color_hex'', '''') | string | replace(''#'',
+        '''') | lower }}'
+  - variables:
+      box_num: '{{ trigger.entity_id.split(''box_'')[1].split(''_'')[0] | int(1) if ''box_'' in trigger.entity_id else 0 }}'
+      slot_num: '{{ trigger.entity_id.split(''slot_'')[1].split(''_'')[0] | int(1) if ''slot_'' in trigger.entity_id else 0 }}'
+  - variables:
+      # SpoolmanSync indexe les slots a partir de 0 (slot_1 du CFS -> index 0)
+      tray_value: '"{{ printer_ip }}-{{ external_tray if trigger.id == ''external'' else ''cfs_box_'' ~ box_num ~ ''_slot_'' ~ (slot_num - 1) ~ ''_filament'' }}"'
+  - action: rest_command.spoolman_get_spools
+    response_variable: spools_resp
+  - variables:
+      found_raw: "{% set ns = namespace(ids=[], best=none, best_w=1000000000, first=none)
+        %} {% for s in spools_resp.content %}\n  {% set f = s.get('filament') or {}
+        %}\n  {% set v = ((f.get('vendor') or {}).get('name', '') | string | lower)
+        %}\n  {% if not s.get('archived', false)\n        and (v == vendor or (vendor == '' and trigger.id == 'external'))\n        and
+        (f.get('material', '') | string | lower) == material\n        and (f.get('color_hex',
+        '') | string | lower) == color %}\n    {% set ns.ids = ns.ids + [s.get('id')]
+        %}\n    {% if ns.first is none %}{% set ns.first = s.get('id') %}{% endif
+        %}\n    {% if s.get('first_used') %}\n      {% set w = s.get('remaining_weight')
+        %}\n      {% set w = w if w is number else 999999999 %}\n      {% if ns.best
+        is none or w < ns.best_w %}\n        {% set ns.best = s.get('id') %}\n        {%
+        set ns.best_w = w %}\n      {% endif %}\n    {% endif %}\n  {% endif %}\n{%
+        endfor %} {{ {'ids': ns.ids, 'chosen': (ns.best if ns.best is not none else
+        (ns.first if ns.first is not none else 0))} | tojson }}"
+  - variables:
+      found: '{{ found_raw | from_json if found_raw is string else found_raw }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ found.ids | length > 0 }}'
+      sequence:
+      - variables:
+          spool_id: '{{ found.chosen }}'
+          extra_info: "{% if found.ids | length > 1 %}\n  (choisie parmi les bobines
+            {{ found.ids }} : la plus entamée, sinon la première)\n{% endif %}"
+      - if:
+        - condition: template
+          value_template: '{{ dry_run }}'
+        then:
+        - action: persistent_notification.create
+          data:
+            title: SpoolmanSync - test
+            notification_id: spoolman_auto_{{ slot_name }}
+            message: 'Test : j''assignerais la bobine #{{ spool_id }} au slot {{ slot_name
+              }} ({{ vendor }} {{ material }} #{{ color }}) {{ extra_info }}. Mets
+              dry_run à false pour activer.'
+        else:
+        - action: rest_command.spoolman_set_tray
+          data:
+            spool_id: '{{ spool_id }}'
+            tray_value: '{{ tray_value }}'
+        - action: persistent_notification.create
+          data:
+            title: SpoolmanSync
+            notification_id: spoolman_auto_{{ slot_name }}
+            message: 'Bobine #{{ spool_id }} assignée au slot {{ slot_name }} {{ extra_info
+              }}. Si ce n''est pas la bonne, corrige-la dans SpoolmanSync.'
+    default:
+    - action: persistent_notification.create
+      data:
+        title: SpoolmanSync
+        notification_id: spoolman_auto_{{ slot_name }}
+        message: 'Aucune bobine Spoolman ne correspond à {{ vendor }} {{ material
+          }} #{{ color }} (slot {{ slot_name }}). Assigne-la à la main.'
+  mode: queued
+  max: 8
+

@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creality K2 Pro - Add filaments to the catalog / Ajouter des filaments au catalogue</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #5b6475;
+    --border: #d5d9e2; --accent: #1f6feb; --accent-text: #ffffff;
+    --ok: #1a7f37; --warn: #9a6700; --err: #cf222e; --drop: #eef3fd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --card: #1b2029; --text: #e6e9ef; --muted: #9aa3b5;
+      --border: #333b4a; --accent: #4c8dff; --accent-text: #0b1020;
+      --ok: #3fb950; --warn: #d29922; --err: #f85149; --drop: #1d2636;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .lang button { border: 1px solid var(--border); background: var(--card); color: var(--text);
+                 padding: 4px 10px; cursor: pointer; }
+  .lang button:first-child { border-radius: 6px 0 0 6px; }
+  .lang button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+  .lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+          padding: 16px; margin: 14px 0; }
+  .card h2 { font-size: 1.05rem; margin: 0 0 8px; }
+  .notice { border-left: 4px solid var(--warn); }
+  .drop { display: block; border: 2px dashed var(--border); border-radius: 10px; padding: 22px 12px;
+          text-align: center; cursor: pointer; color: var(--muted); }
+  .drop.over, .drop:focus-within { border-color: var(--accent); background: var(--drop); }
+  .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .file-line { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+               padding: 6px 0; border-bottom: 1px solid var(--border); font-size: .95rem; }
+  .file-line:last-child { border-bottom: 0; }
+  .file-line button { border: 0; background: none; color: var(--err); cursor: pointer; font-size: 1rem; }
+  .loaded { margin-top: 10px; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--muted); }
+  .opts { display: grid; gap: 10px; margin-top: 10px; }
+  .opts label { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .opts input[type="number"] { width: 14ch; padding: 4px 6px; border: 1px solid var(--border);
+                               border-radius: 6px; background: var(--bg); color: var(--text); }
+  .hint { color: var(--muted); font-size: .9rem; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .btn { border: 0; border-radius: 8px; padding: 10px 18px; font-size: 1rem; cursor: pointer;
+         background: var(--accent); color: var(--accent-text); font-weight: 600; }
+  .btn.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); font-weight: 400; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  ul.log { list-style: none; margin: 0; padding: 0; }
+  ul.log li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: .95rem; word-break: break-word; }
+  ul.log li:last-child { border-bottom: 0; }
+  .tag { display: inline-block; min-width: 4.8em; font-weight: 600; }
+  .t-add .tag, .t-replace .tag { color: var(--ok); }
+  .t-skip .tag, .t-warn .tag { color: var(--warn); }
+  .t-error .tag { color: var(--err); }
+  .summary-line { margin: 10px 0; font-weight: 600; }
+  .msg-err { color: var(--err); font-weight: 600; }
+  .msg-warn { color: var(--warn); }
+  footer { color: var(--muted); font-size: .85rem; margin-top: 24px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1 id="title"></h1>
+      <p class="sub" id="subtitle"></p>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" id="lang-fr" aria-pressed="false">FR</button><button type="button" id="lang-en" aria-pressed="false">EN</button>
+    </div>
+  </header>
+
+  <section class="card notice">
+    <strong id="privacy-title"></strong>
+    <div id="privacy-text"></div>
+  </section>
+
+  <section class="card">
+    <h2 id="step1-title"></h2>
+    <p class="hint" id="step1-hint"></p>
+    <label class="drop" id="drop-db">
+      <span id="drop-db-text"></span>
+      <input type="file" id="input-db" accept=".json,application/json">
+    </label>
+    <div class="loaded" id="db-loaded" hidden></div>
+  </section>
+
+  <section class="card">
+    <h2 id="step2-title"></h2>
+    <p class="hint" id="step2-hint"></p>
+    <label class="drop" id="drop-presets">
+      <span id="drop-presets-text"></span>
+      <input type="file" id="input-presets" accept=".json,application/json" multiple>
+    </label>
+    <div class="loaded" id="presets-loaded" hidden></div>
+  </section>
+
+  <section class="card">
+    <h2 id="step3-title"></h2>
+    <details>
+      <summary id="opts-summary"></summary>
+      <div class="opts">
+        <label><span id="opt-rank-label"></span> <input type="number" id="opt-rank" value="3000" min="0" step="1"></label>
+        <label><span id="opt-version-label"></span> <input type="number" id="opt-version" value="9876543210" min="0" step="1"></label>
+        <span class="hint" id="opt-version-hint"></span>
+        <label><input type="checkbox" id="opt-replace"> <span id="opt-replace-label"></span></label>
+      </div>
+    </details>
+    <div class="actions" style="margin-top:14px">
+      <button type="button" class="btn" id="btn-generate" disabled></button>
+      <button type="button" class="btn secondary" id="btn-preview" disabled></button>
+    </div>
+  </section>
+
+  <section class="card" id="result" hidden aria-live="polite">
+    <h2 id="result-title"></h2>
+    <ul class="log" id="log"></ul>
+    <div class="summary-line" id="summary"></div>
+    <div id="format-warning" class="msg-warn" hidden></div>
+    <div class="actions" id="download-actions" hidden style="margin-top:10px">
+      <button type="button" class="btn" id="btn-download"></button>
+    </div>
+    <p class="hint" id="after-download" hidden></p>
+  </section>
+
+  <footer id="footer"></footer>
+</main>
+
+<script>
+// ---------------------------------------------------------------------------
+// CORE START - catalog logic (same rules as tools/add_filament.py)
+// ---------------------------------------------------------------------------
+const DEFAULT_VERSION = 9876543210;
+const FIRST_CUSTOM_ID = 90001;
+const IGNORED_PRESET_KEYS = new Set(["base_id", "filament_settings_id", "from", "name", "version"]);
+
+function first(value) {
+  if (Array.isArray(value)) return value.length === 1 ? value[0] : null;
+  return value === undefined ? null : value;
+}
+
+function hasUserMaterial(entry) {
+  return Object.prototype.hasOwnProperty.call(entry, "userMaterial");
+}
+
+function isGeneric(entry) {
+  return entry.base.brand === "Generic" && !hasUserMaterial(entry);
+}
+
+function findGeneric(entries, preset) {
+  const inherits = first(preset.inherits) || "";
+  const wanted = String(inherits).split(" @")[0].trim().toLowerCase();
+  const generics = entries.filter(isGeneric);
+  for (const e of generics) {
+    if (String(e.base.name).toLowerCase() === wanted) return e;
+  }
+  const names = generics.map(e => e.base.name).sort().join(", ");
+  throw new Error('no generic entry matches inherits="' + inherits + '". Available: ' + names);
+}
+
+function nextCustomId(entries) {
+  const used = entries
+    .map(e => String(e.base.id))
+    .filter(id => /^\d+$/.test(id) && parseInt(id, 10) >= FIRST_CUSTOM_ID - 1)
+    .map(id => parseInt(id, 10));
+  return used.length ? String(Math.max(...used) + 1) : String(FIRST_CUSTOM_ID);
+}
+
+function buildEntry(generic, preset, newId, rank) {
+  const entry = JSON.parse(JSON.stringify(generic));
+  delete entry.userMaterial;
+  const kv = entry.kvParam;
+  const warnings = [];
+
+  for (const key of Object.keys(preset)) {
+    if (IGNORED_PRESET_KEYS.has(key)) continue;
+    const value = first(preset[key]);
+    if (value === null) {
+      warnings.push({ code: "multi", key });
+    } else if (Object.prototype.hasOwnProperty.call(kv, key)) {
+      kv[key] = String(value);
+    } else {
+      warnings.push({ code: "unknown", key });
+    }
+  }
+
+  const settingsId = first(preset.filament_settings_id) || preset.name;
+  const vendor = first(preset.filament_vendor);
+  if (!settingsId || !vendor) {
+    throw new Error("preset needs 'filament_settings_id' (or 'name') and 'filament_vendor'");
+  }
+
+  const base = entry.base;
+  base.id = newId;
+  base.brand = vendor;
+  base.name = String(settingsId).split("_").join(" ");
+  base.rank = rank;
+  const low = first(preset.nozzle_temperature_range_low);
+  const high = first(preset.nozzle_temperature_range_high);
+  if (low) base.minTemp = Math.trunc(parseFloat(low));
+  if (high) base.maxTemp = Math.trunc(parseFloat(high));
+  const density = first(kv.filament_density);
+  if (density) base.density = parseFloat(density);   // keep base and kvParam consistent
+  return { entry, warnings };
+}
+
+// Same layout as the printer's file: 2-space indent, no space after ':'
+function serialize(value, level) {
+  level = level || 0;
+  if (value === null) return "null";
+  if (Array.isArray(value)) {
+    if (!value.length) return "[]";
+    const pad = "  ".repeat(level + 1);
+    return "[\n" + value.map(v => pad + serialize(v, level + 1)).join(",\n") + "\n" + "  ".repeat(level) + "]";
+  }
+  if (typeof value === "object") {
+    const keys = Object.keys(value);
+    if (!keys.length) return "{}";
+    const pad = "  ".repeat(level + 1);
+    return "{\n" + keys.map(k => pad + JSON.stringify(k) + ":" + serialize(value[k], level + 1)).join(",\n")
+      + "\n" + "  ".repeat(level) + "}";
+  }
+  return JSON.stringify(value);
+}
+
+// db: parsed catalog (modified in place). presets: [{ name: fileName, json: object }]
+// Returns { events, changed }. Throws Error with .file set when a preset is invalid (nothing must be written).
+function addFilaments(db, presets, opts) {
+  const result = db.result;
+  const entries = result.list;
+  const events = [];
+
+  for (const p of presets) {
+    try {
+      const preset = p.json;
+      const generic = findGeneric(entries, preset);
+      const vendor = first(preset.filament_vendor);
+      const name = String(first(preset.filament_settings_id) || preset.name || "").split("_").join(" ");
+      let existing = null;
+      entries.forEach((e, i) => {
+        if (isGeneric(e) || hasUserMaterial(e)) return;
+        if (e.base.brand === vendor && e.base.name === name) existing = i;
+      });
+      if (existing !== null && !opts.replace) {
+        events.push({ type: "skip", file: p.name, brand: vendor, name });
+        continue;
+      }
+      let newId;
+      if (existing !== null) {
+        newId = entries[existing].base.id;
+      } else {
+        newId = nextCustomId(entries);
+      }
+      const built = buildEntry(generic, preset, newId, opts.rank);
+      if (existing !== null) entries[existing] = built.entry; else entries.push(built.entry);
+      const b = built.entry.base;
+      events.push({ type: existing !== null ? "replace" : "add", file: p.name, id: b.id, brand: b.brand,
+                    name: b.name, material: b.meterialType, min: b.minTemp, max: b.maxTemp });
+      for (const w of built.warnings) events.push({ type: "warn", file: p.name, code: w.code, key: w.key });
+    } catch (err) {
+      err.file = p.name;
+      throw err;
+    }
+  }
+
+  const changed = events.some(e => e.type === "add" || e.type === "replace");
+  if (changed) {
+    result.count = entries.length;
+    const current = String(result.version === undefined ? "" : result.version);
+    result.version = /^\d+$/.test(current)
+      ? String(Math.max(parseInt(current, 10), opts.minVersion))
+      : String(opts.minVersion);
+  }
+  return { events, changed };
+}
+// ---------------------------------------------------------------------------
+// CORE END
+// ---------------------------------------------------------------------------
+
+// ======================= User interface (no network access) ==================
+const I18N = {
+  fr: {
+    title: "Ajouter des filaments au catalogue de la K2 Pro",
+    subtitle: "Glisse ton catalogue et tes préréglages exportés, puis clique sur le bouton. Aucune installation nécessaire.",
+    privacyTitle: "Tout reste sur ton ordinateur.",
+    privacyText: "Cette page fonctionne hors ligne : tes fichiers ne sont envoyés nulle part. Ton fichier d'origine n'est jamais modifié, tu télécharges un nouveau fichier. Garde malgré tout une sauvegarde de l'original avant de le remplacer sur l'imprimante.",
+    step1: "1. Le catalogue de l'imprimante",
+    step1Hint: "Le fichier material_database.json récupéré sur l'imprimante (/mnt/UDISK/creality/userdata/box/).",
+    dropDb: "Glisse material_database.json ici, ou clique pour le choisir",
+    step2: "2. Tes préréglages de filaments",
+    step2Hint: "Les fichiers .json exportés depuis Creality Print (un par filament). Tu peux en glisser plusieurs.",
+    dropPresets: "Glisse tes préréglages ici, ou clique pour les choisir",
+    step3: "3. Générer",
+    optsSummary: "Options avancées",
+    optRank: "Ordre de tri (rank) des nouvelles entrées :",
+    optVersion: "Version minimale du catalogue :",
+    optVersionHint: "Doit être supérieure à la version d'origine. L'outil ne diminue jamais la version actuelle.",
+    optReplace: "Remplacer une entrée existante de même marque et même nom",
+    btnGenerate: "Ajouter les filaments",
+    btnPreview: "Aperçu seulement",
+    resultTitle: "Résultat",
+    btnDownload: "Télécharger le nouveau material_database.json",
+    afterDownload: "Remplace ensuite le fichier sur l'imprimante (en gardant la sauvegarde de l'original), puis suis les étapes suivantes du guide.",
+    remove: "Retirer",
+    loadedDb: (n, v) => n + " entrées, version " + v,
+    tagAdd: "Ajout", tagReplace: "Remplacé", tagSkip: "Ignoré", tagWarn: "Attention", tagError: "Erreur",
+    evAdd: e => "id " + e.id + " | " + e.brand + " | " + e.name + " | " + e.material + " | " + e.min + "-" + e.max + " °C",
+    evSkip: e => e.file + " : « " + e.brand + " / " + e.name + " » est déjà dans le catalogue (coche « Remplacer » pour le mettre à jour)",
+    evWarn: e => e.file + " : " + (e.code === "multi" ? "clé à valeurs multiples ignorée : " : "clé inconnue du catalogue ignorée : ") + e.key,
+    summary: (count, version) => "Catalogue : " + count + " entrées, version " + version,
+    nothing: "Rien à faire : aucun filament ajouté.",
+    previewOnly: "Aperçu : rien n'a été généré. Clique sur « Ajouter les filaments » pour créer le fichier.",
+    formatWarn: "Remarque : la mise en forme du fichier d'origine n'est pas reproduite à l'identique (le contenu reste le même). Cela ne devrait pas poser de problème, mais teste avec un seul filament d'abord.",
+    errBadJson: f => "Le fichier « " + f + " » n'est pas un JSON valide.",
+    errNotDb: f => "Le fichier « " + f + " » ne ressemble pas à un catalogue (result.list introuvable).",
+    errPreset: (f, msg) => "Préréglage « " + f + " » : " + msg + ". Rien n'a été généré.",
+    footer: "Outil du dépôt spoolman-creality-k2pro. Utilisation à tes risques, garde toujours une sauvegarde."
+  },
+  en: {
+    title: "Add filaments to the K2 Pro catalog",
+    subtitle: "Drop your catalog and your exported presets, then click the button. Nothing to install.",
+    privacyTitle: "Everything stays on your computer.",
+    privacyText: "This page works offline: your files are not sent anywhere. Your original file is never modified, you download a new one. Still, keep a backup of the original before replacing it on the printer.",
+    step1: "1. The printer catalog",
+    step1Hint: "The material_database.json file taken from the printer (/mnt/UDISK/creality/userdata/box/).",
+    dropDb: "Drop material_database.json here, or click to choose it",
+    step2: "2. Your filament presets",
+    step2Hint: "The .json files exported from Creality Print (one per filament). You can drop several at once.",
+    dropPresets: "Drop your presets here, or click to choose them",
+    step3: "3. Generate",
+    optsSummary: "Advanced options",
+    optRank: "Sort order (rank) of the new entries:",
+    optVersion: "Minimum catalog version:",
+    optVersionHint: "Must be higher than the original version. The tool never lowers the current version.",
+    optReplace: "Replace an existing entry with the same brand and name",
+    btnGenerate: "Add the filaments",
+    btnPreview: "Preview only",
+    resultTitle: "Result",
+    btnDownload: "Download the new material_database.json",
+    afterDownload: "Then replace the file on the printer (keeping the backup of the original) and follow the next steps of the guide.",
+    remove: "Remove",
+    loadedDb: (n, v) => n + " entries, version " + v,
+    tagAdd: "Added", tagReplace: "Replaced", tagSkip: "Skipped", tagWarn: "Warning", tagError: "Error",
+    evAdd: e => "id " + e.id + " | " + e.brand + " | " + e.name + " | " + e.material + " | " + e.min + "-" + e.max + " °C",
+    evSkip: e => e.file + ": '" + e.brand + " / " + e.name + "' is already in the catalog (tick 'Replace' to update it)",
+    evWarn: e => e.file + ": " + (e.code === "multi" ? "skipped multi-valued key: " : "skipped key unknown to the catalog: ") + e.key,
+    summary: (count, version) => "Catalog: " + count + " entries, version " + version,
+    nothing: "Nothing to do: no filament added.",
+    previewOnly: "Preview: nothing was generated. Click 'Add the filaments' to create the file.",
+    formatWarn: "Note: the original file's formatting is not reproduced exactly (the content is the same). This should not be a problem, but test with a single filament first.",
+    errBadJson: f => "The file '" + f + "' is not valid JSON.",
+    errNotDb: f => "The file '" + f + "' does not look like a catalog (result.list not found).",
+    errPreset: (f, msg) => "Preset '" + f + "': " + msg + ". Nothing was generated.",
+    footer: "Tool from the spoolman-creality-k2pro repository. Use at your own risk, always keep a backup."
+  }
+};
+
+const state = { lang: (navigator.language || "en").toLowerCase().startsWith("fr") ? "fr" : "en",
+                db: null, presets: [], outputText: null };
+const $ = id => document.getElementById(id);
+const t = () => I18N[state.lang];
+
+function applyLang() {
+  const s = t();
+  document.documentElement.lang = state.lang;
+  $("title").textContent = s.title;
+  $("subtitle").textContent = s.subtitle;
+  $("privacy-title").textContent = s.privacyTitle;
+  $("privacy-text").textContent = s.privacyText;
+  $("step1-title").textContent = s.step1;
+  $("step1-hint").textContent = s.step1Hint;
+  $("drop-db-text").textContent = s.dropDb;
+  $("step2-title").textContent = s.step2;
+  $("step2-hint").textContent = s.step2Hint;
+  $("drop-presets-text").textContent = s.dropPresets;
+  $("step3-title").textContent = s.step3;
+  $("opts-summary").textContent = s.optsSummary;
+  $("opt-rank-label").textContent = s.optRank;
+  $("opt-version-label").textContent = s.optVersion;
+  $("opt-version-hint").textContent = s.optVersionHint;
+  $("opt-replace-label").textContent = s.optReplace;
+  $("btn-generate").textContent = s.btnGenerate;
+  $("btn-preview").textContent = s.btnPreview;
+  $("result-title").textContent = s.resultTitle;
+  $("btn-download").textContent = s.btnDownload;
+  $("after-download").textContent = s.afterDownload;
+  $("footer").textContent = s.footer;
+  $("lang-fr").setAttribute("aria-pressed", String(state.lang === "fr"));
+  $("lang-en").setAttribute("aria-pressed", String(state.lang === "en"));
+  renderLoaded();
+  $("result").hidden = true;
+}
+
+function fileLine(name, onRemove) {
+  const row = document.createElement("div");
+  row.className = "file-line";
+  const label = document.createElement("span");
+  label.textContent = name;
+  row.appendChild(label);
+  if (onRemove) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "✕";
+    b.title = t().remove;
+    b.setAttribute("aria-label", t().remove + " " + name);
+    b.addEventListener("click", onRemove);
+    row.appendChild(b);
+  }
+  return row;
+}
+
+function renderLoaded() {
+  const dbBox = $("db-loaded");
+  dbBox.textContent = "";
+  if (state.db) {
+    const info = t().loadedDb(state.db.data.result.list.length, state.db.data.result.version);
+    dbBox.appendChild(fileLine("✔ " + state.db.name + " (" + info + ")", () => { state.db = null; resetResult(); renderLoaded(); }));
+  }
+  dbBox.hidden = !state.db;
+
+  const pBox = $("presets-loaded");
+  pBox.textContent = "";
+  state.presets.forEach((p, i) => {
+    pBox.appendChild(fileLine("✔ " + p.name, () => { state.presets.splice(i, 1); resetResult(); renderLoaded(); }));
+  });
+  pBox.hidden = state.presets.length === 0;
+
+  const ready = !!state.db && state.presets.length > 0;
+  $("btn-generate").disabled = !ready;
+  $("btn-preview").disabled = !ready;
+}
+
+function resetResult() {
+  state.outputText = null;
+  $("result").hidden = true;
+}
+
+function showMessage(text, cls) {
+  $("result").hidden = false;
+  $("log").textContent = "";
+  const li = document.createElement("li");
+  li.className = "t-error";
+  const span = document.createElement("span");
+  span.className = cls || "msg-err";
+  span.textContent = text;
+  li.appendChild(span);
+  $("log").appendChild(li);
+  $("summary").textContent = "";
+  $("format-warning").hidden = true;
+  $("download-actions").hidden = true;
+  $("after-download").hidden = true;
+}
+
+async function readFiles(fileList, kind) {
+  for (const file of Array.from(fileList)) {
+    let text, json;
+    try {
+      text = await file.text();
+      json = JSON.parse(text);
+    } catch (e) {
+      showMessage(t().errBadJson(file.name));
+      continue;
+    }
+    if (kind === "db") {
+      if (!json || !json.result || !Array.isArray(json.result.list)) {
+        showMessage(t().errNotDb(file.name));
+        continue;
+      }
+      state.db = { name: file.name, text, data: json };
+    } else {
+      if (!state.presets.some(p => p.name === file.name)) state.presets.push({ name: file.name, json });
+    }
+    resetResult();
+  }
+  renderLoaded();
+}
+
+function run(download) {
+  const s = t();
+  const opts = {
+    rank: parseInt($("opt-rank").value, 10) || 3000,
+    minVersion: parseInt($("opt-version").value, 10) || DEFAULT_VERSION,
+    replace: $("opt-replace").checked
+  };
+  const work = JSON.parse(state.db.text);          // work on a copy, never on the loaded original
+  let outcome;
+  try {
+    outcome = addFilaments(work, state.presets, opts);
+  } catch (err) {
+    showMessage(s.errPreset(err.file || "?", err.message));
+    return;
+  }
+
+  $("result").hidden = false;
+  const log = $("log");
+  log.textContent = "";
+  const tags = { add: s.tagAdd, replace: s.tagReplace, skip: s.tagSkip, warn: s.tagWarn };
+  for (const e of outcome.events) {
+    const li = document.createElement("li");
+    li.className = "t-" + e.type;
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = tags[e.type];
+    const txt = document.createElement("span");
+    txt.textContent = " " + (e.type === "add" || e.type === "replace" ? s.evAdd(e)
+      : e.type === "skip" ? s.evSkip(e) : s.evWarn(e));
+    li.appendChild(tag);
+    li.appendChild(txt);
+    log.appendChild(li);
+  }
+
+  const dl = $("download-actions");
+  if (!outcome.changed) {
+    $("summary").textContent = s.nothing;
+    $("format-warning").hidden = true;
+    dl.hidden = true;
+    $("after-download").hidden = true;
+    state.outputText = null;
+    return;
+  }
+
+  $("summary").textContent = s.summary(work.result.count, work.result.version);
+  const trailing = state.db.text.endsWith("\n") ? "\n" : "";
+  const sameLayout = serialize(JSON.parse(state.db.text)) + trailing === state.db.text;
+  $("format-warning").hidden = sameLayout;
+  $("format-warning").textContent = sameLayout ? "" : s.formatWarn;
+
+  if (!download) {
+    state.outputText = null;
+    dl.hidden = true;
+    $("after-download").hidden = true;
+    const li = document.createElement("li");
+    li.className = "t-warn";
+    li.textContent = s.previewOnly;
+    log.appendChild(li);
+    return;
+  }
+  state.outputText = serialize(work) + trailing;
+  JSON.parse(state.outputText);                    // sanity check: the output must be valid JSON
+  dl.hidden = false;
+  $("after-download").hidden = false;
+}
+
+function downloadOutput() {
+  if (!state.outputText) return;
+  const blob = new Blob([state.outputText], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "material_database.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function setupDrop(zoneId, inputId, kind) {
+  const zone = $(zoneId), input = $(inputId);
+  ["dragenter", "dragover"].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove("over"); }));
+  zone.addEventListener("drop", e => { if (e.dataTransfer && e.dataTransfer.files.length) readFiles(e.dataTransfer.files, kind); });
+  input.addEventListener("change", () => { readFiles(input.files, kind); input.value = ""; });
+}
+
+// A file dropped outside the zones must not make the browser open it
+["dragover", "drop"].forEach(ev => window.addEventListener(ev, e => e.preventDefault()));
+
+setupDrop("drop-db", "input-db", "db");
+setupDrop("drop-presets", "input-presets", "presets");
+$("btn-generate").addEventListener("click", () => run(true));
+$("btn-preview").addEventListener("click", () => run(false));
+$("btn-download").addEventListener("click", downloadOutput);
+$("lang-fr").addEventListener("click", () => { state.lang = "fr"; applyLang(); });
+$("lang-en").addEventListener("click", () => { state.lang = "en"; applyLang(); });
+applyLang();
+</script>
+</body>
+</html>
