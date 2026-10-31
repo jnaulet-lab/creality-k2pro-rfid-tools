@@ -278,9 +278,10 @@ function addFilaments(db, presets, opts) {
   if (changed) {
     result.count = entries.length;
     const current = String(result.version === undefined ? "" : result.version);
-    result.version = /^\d+$/.test(current)
-      ? String(Math.max(parseInt(current, 10), opts.minVersion))
-      : String(opts.minVersion);
+    // +1 on every change: the CFS RFID app only downloads the catalog again when the version changes
+    const bumped = /^\d+$/.test(current) ? BigInt(current) + 1n : 0n;
+    const minimum = BigInt(Math.trunc(opts.minVersion));
+    result.version = String(bumped > minimum ? bumped : minimum);
   }
   return { events, changed };
 }
@@ -305,7 +306,7 @@ const I18N = {
     optsSummary: "Options avancées",
     optRank: "Ordre de tri (rank) des nouvelles entrées :",
     optVersion: "Version minimale du catalogue :",
-    optVersionHint: "Doit être supérieure à la version d'origine. L'outil ne diminue jamais la version actuelle.",
+    optVersionHint: "Doit être supérieure à la version d'origine. À chaque modification, l'outil augmente aussi la version de 1 (l'appli CFS RFID ne retélécharge la base que si la version change).",
     optReplace: "Remplacer une entrée existante de même marque et même nom",
     btnGenerate: "Ajouter les filaments",
     btnPreview: "Aperçu seulement",
@@ -342,7 +343,7 @@ const I18N = {
     optsSummary: "Advanced options",
     optRank: "Sort order (rank) of the new entries:",
     optVersion: "Minimum catalog version:",
-    optVersionHint: "Must be higher than the original version. The tool never lowers the current version.",
+    optVersionHint: "Must be higher than the original version. On every change the tool also raises the version by 1 (the CFS RFID app only downloads the catalog again when the version changes).",
     optReplace: "Replace an existing entry with the same brand and name",
     btnGenerate: "Add the filaments",
     btnPreview: "Preview only",

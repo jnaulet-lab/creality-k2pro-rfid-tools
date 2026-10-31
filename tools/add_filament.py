@@ -10,7 +10,8 @@ For each preset the script:
   2. copies it, then sets a new id, the brand (filament_vendor), a readable name, rank, min/max temperatures
      and the base density taken from the preset,
   3. overlays the preset values onto the entry's kvParam (only keys that already exist there),
-  4. updates result.count and result.version,
+  4. updates result.count and raises result.version by at least 1 on every change (the CFS RFID app
+     only downloads the catalog again when the version has changed),
   5. saves a timestamped backup of the original file before writing.
 
 Usage / Utilisation:
@@ -122,7 +123,7 @@ def main():
     p.add_argument("--id", help="id for the new entry (only with a single preset); default: next free id from 90001")
     p.add_argument("--rank", type=int, default=DEFAULT_RANK, help=f"sort order (default {DEFAULT_RANK})")
     p.add_argument("--version", type=int, default=DEFAULT_VERSION,
-                   help=f"minimum catalog version (default {DEFAULT_VERSION}); never lowers the current one")
+                   help=f"minimum catalog version (default {DEFAULT_VERSION}); on every change the version is also raised by 1 over the current one, never lowered")
     p.add_argument("--replace", action="store_true", help="replace an existing entry with the same brand and name")
     p.add_argument("--out", help="write to this file instead of modifying the database in place")
     p.add_argument("--dry-run", action="store_true", help="show what would change, write nothing")
@@ -182,7 +183,8 @@ def main():
 
     result["count"] = len(entries)
     current = str(result.get("version", ""))
-    result["version"] = str(max(int(current), args.version)) if current.isdigit() else str(args.version)
+    bumped = int(current) + 1 if current.isdigit() else 0     # always different from the previous version
+    result["version"] = str(max(bumped, args.version))
     print(f"count = {result['count']} | version = {result['version']}")
 
     if args.dry_run:

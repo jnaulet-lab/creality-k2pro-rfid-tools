@@ -53,7 +53,7 @@ By default, the K2 Pro does not recognize third-party RFID tags and lists every 
 ![Tag on a spool](docs/images/tag-on-spool.jpg)
 
 - **Creality spools (reuse):** reprogram the original tag directly.
-- **Reusable third-party spools:** stick a tag on **each flank** of the spool, using a 3D-printed positioning jig so the tag lines up with the CFS reader ([positioning jig](3d-models/RFID_Positioning_Tool/)).
+- **Reusable third-party spools:** stick a tag on **each flank** of the spool, using a 3D-printed positioning jig so the tag lines up with the CFS reader ([positioning jig](3d-models/RDIF_Positioning_Tool/)).
 - **Cardboard spools on the external spool holder:** place on one flank of the spool a simple holder that takes the tag ([RFID_Holder](3d-models/RFID_Holder/)).
 - **Disposable / cardboard spools (55 mm diameter, eSun type):** use a clip-on support that holds the tag ([Support_RFID_55mm](3d-models/Support_RFID_55mm/)).
 
@@ -112,7 +112,7 @@ For each exported preset, the script:
 1. finds the matching generic entry through the preset's `inherits` field;
 2. copies it, then sets the `id` (next free id from `90001`), the brand (`filament_vendor`), a readable name, the `rank`, the min/max temperatures and the density;
 3. overlays the preset values onto `kvParam` (only keys that already exist in the catalog; others are reported);
-4. updates `result.count` and `result.version` (never lowering the current version);
+4. updates `result.count` and raises `result.version` by at least 1 on every change;
 5. **saves a timestamped backup** of the original file before writing.
 
 Useful options: `--dry-run` (writes nothing), `--out file.json` (writes elsewhere), `--id` (forced id, single preset only), `--replace` (replaces an existing entry with the same brand and name). A filament already in the catalog is skipped unless you pass `--replace`.
@@ -122,10 +122,12 @@ Useful options: `--dry-run` (writes nothing), `--out file.json` (writes elsewher
 ### Versioning
 - `result.count` must equal the new number of entries.
 - `result.version` must be set to a **very large number** so that your catalog is never considered older than another version and overwritten. We used `9876543210`. **The value must be higher than the original one** (in our file the original looked like a timestamp, `1790760956`), so a small number such as `999999` would do the opposite of what you want.
+- **Change the version on every modification.** The CFS RFID app only downloads the catalog again when it sees a different version number. If you edit the file but keep the same version, the app keeps its old copy. The HTML tool and the Python script do this for you (+1 on every change).
 - This is an observed practice, not documented by Creality.
 
 ### Pitfalls
 - Keep a copy of every catalog version before editing.
+- The CFS RFID app does not show your new filaments? Check that `result.version` really changed, then download the database again in the app.
 - Make sure the JSON stays valid before copying it back.
 - In our PETG examples, `density` in `base` (1.24) differs from `kvParam.filament_density` (1.27): keep them consistent in your own entries (the script does this automatically).
 

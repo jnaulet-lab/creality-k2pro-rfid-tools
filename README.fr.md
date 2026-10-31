@@ -53,7 +53,7 @@ Par défaut, la K2 Pro ne reconnaît pas les puces RFID tierces et classe toute 
 ![Tag posé sur une bobine](docs/images/tag-on-spool.jpg)
 
 - **Bobines Creality (réutilisation) :** reprogrammation directe du tag d'origine.
-- **Bobines tierces réutilisables :** colle un tag sur **chaque flanc** de la bobine, avec un gabarit de positionnement imprimé en 3D pour aligner la puce avec le lecteur du CFS ([gabarit de positionnement](3d-models/RFID_Positioning_Tool/)).
+- **Bobines tierces réutilisables :** colle un tag sur **chaque flanc** de la bobine, avec un gabarit de positionnement imprimé en 3D pour aligner la puce avec le lecteur du CFS ([gabarit de positionnement](3d-models/RDIF_Positioning_Tool/)).
 - **Bobines carton sur le support de bobine extérieur :** pose sur un flanc de la bobine un support simple qui accueille la puce ([RFID_Holder](3d-models/RFID_Holder/)).
 - **Bobines jetables / carton (diamètre 55 mm, type eSun) :** utilise un support clipable qui accueille la puce ([Support_RFID_55mm](3d-models/Support_RFID_55mm/)).
 
@@ -112,7 +112,7 @@ Pour chaque préréglage exporté, le script :
 1. retrouve l'entrée générique correspondante grâce au champ `inherits` du préréglage ;
 2. la copie, puis renseigne l'`id` (prochain identifiant libre à partir de `90001`), la marque (`filament_vendor`), le nom lisible, le `rank`, les températures min/max et la densité ;
 3. applique les valeurs du préréglage sur `kvParam` (uniquement les clés déjà présentes dans le catalogue ; les autres sont signalées) ;
-4. met à jour `result.count` et `result.version` (sans jamais diminuer la version actuelle) ;
+4. met à jour `result.count` et augmente `result.version` d'au moins 1 à chaque modification ;
 5. **enregistre une sauvegarde horodatée** du fichier d'origine avant d'écrire.
 
 Options utiles : `--dry-run` (n'écrit rien), `--out fichier.json` (écrit ailleurs), `--id` (identifiant imposé, pour un seul préréglage), `--replace` (remplace une entrée existante de même marque et même nom). Un filament déjà présent est ignoré sans `--replace`.
@@ -122,10 +122,12 @@ Options utiles : `--dry-run` (n'écrit rien), `--out fichier.json` (écrit aille
 ### Versionnement
 - `result.count` doit être égal au nouveau nombre d'entrées.
 - `result.version` doit prendre une **valeur très élevée** pour que ton catalogue ne soit jamais jugé plus ancien qu'une autre version et écrasé. Nous avons utilisé `9876543210`. **La valeur doit être supérieure à celle d'origine** (dans notre fichier, l'originale ressemblait à un horodatage, `1790760956`) : un petit nombre comme `999999` ferait donc l'inverse de l'effet recherché.
+- **Change la version à chaque modification.** L'appli CFS RFID ne retélécharge le catalogue que si elle voit un numéro de version différent. Si tu modifies le fichier sans changer la version, l'appli garde son ancienne copie. L'outil HTML et le script Python le font pour toi (+1 à chaque modification).
 - Il s'agit d'une pratique constatée, non documentée par Creality.
 
 ### Pièges
 - Garde une copie de chaque version du catalogue avant modification.
+- L'appli CFS RFID n'affiche pas tes nouveaux filaments ? Vérifie que `result.version` a bien changé, puis retélécharge la base dans l'appli.
 - Vérifie que le JSON reste valide avant de le recopier.
 - Dans nos exemples PETG, `density` dans `base` (1,24) diffère de `kvParam.filament_density` (1,27) : garde-les cohérents dans tes propres entrées (le script le fait automatiquement).
 
