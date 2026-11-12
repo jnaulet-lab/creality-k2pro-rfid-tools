@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 jnaulet-lab
+# MIT License - see LICENSE and LICENSES/MIT.txt in the repository.
 """
 add_filament.py - add filaments to the Creality K2 Pro catalog (material_database.json)
 from filament presets exported by Creality Print.
