@@ -1,0 +1,234 @@
+# automations.yaml - extrait : suivi du stock de filament (2 automations)
+#  1) debit du stock a chaque changement de slot et en fin d'impression
+#  2) mise a jour de la liste deroulante 'Ajuster le stock' (en bas du fichier)
+# A AJOUTER a votre automations.yaml (ou a recreer dans l'interface via 'Modifier en YAML').
+# Adaptez 'k2pro_creality' au prefixe de vos entites.
+- id: spoolmansync_update_spool_k2pro_creality
+  alias: Stock filament - Debit consommation (k2pro_creality)
+  description: A chaque changement de slot et en fin d'impression, retire la longueur consommee du stock de la reference de filament (script /config/stock).
+  triggers:
+  - entity_id: sensor.spoolmansync_k2pro_creality_active_tray
+    id: tray
+    not_from:
+    - unavailable
+    - unknown
+    not_to:
+    - unavailable
+    - unknown
+    trigger: state
+  - entity_id: sensor.k2pro_creality_print_status
+    to:
+    - completed
+    - idle
+    id: print_end
+    trigger: state
+  - entity_id: sensor.k2pro_creality_print_status
+    to:
+    - 'off'
+    - offline
+    for: 00:02:00
+    id: offline
+    trigger: state
+  variables:
+    old_tray: "{% if trigger.id == 'tray' and trigger.from_state is not none and trigger.from_state.state
+      not in [None, '', 'unknown', 'unavailable'] %}\n  {{ trigger.from_state.state
+      | int(-1) }}\n{% else %}\n  -1\n{% endif %}"
+    new_tray: "{% if trigger.id == 'tray' and trigger.to_state is not none and trigger.to_state.state
+      not in [None, '', 'unknown', 'unavailable'] %}\n  {{ trigger.to_state.state
+      | int(-1) }}\n{% else %}\n  -1\n{% endif %}"
+    helper_tray: '{{ states(''input_number.spoolmansync_k2pro_creality_last_tray'')
+      | int(-1) }}'
+    tray_composite: "{% if trigger.id == 'print_end' %}\n  {{ helper_tray }}\n{% else
+      %}\n  {{ old_tray if old_tray >= 0 else helper_tray }}\n{% endif %}"
+    tray_sensor: '{% if tray_composite == 0 %}sensor.k2pro_creality_cfs_external_filament{%
+      endif %}{% if tray_composite == 11 %}sensor.k2pro_creality_cfs_box_1_slot_1_filament{%
+      endif %}{% if tray_composite == 12 %}sensor.k2pro_creality_cfs_box_1_slot_2_filament{%
+      endif %}{% if tray_composite == 13 %}sensor.k2pro_creality_cfs_box_1_slot_3_filament{%
+      endif %}{% if tray_composite == 14 %}sensor.k2pro_creality_cfs_box_1_slot_4_filament{%
+      endif %}'
+    tray_usage_cm: '{{ states(''sensor.spoolmansync_k2pro_creality_filament_usage_meter'')
+      | float(0) | round(2) }}'
+    material_code: '{{ state_attr(tray_sensor, ''rfid'') | default('''') }}'
+    material: '{{ state_attr(tray_sensor, ''type'') | default('''') }}'
+    name: '{{ state_attr(tray_sensor, ''name'') | default('''') }}'
+    color: '{{ state_attr(tray_sensor, ''color_hex'') | default('''') }}'
+    vendor: '{{ state_attr(tray_sensor, ''vendor'') | default('''') }}'
+    stock_color: '{{ color | string | replace(''#'', '''') | lower }}'
+    stock_key: '{{ ((material_code | string if material_code | string | length > 0 else material ~ ''_'' ~ name) ~ ''_'' ~ stock_color) | regex_replace(''[^A-Za-z0-9_.-]'', '''') }}'
+    stock_label: '{{ ([vendor, name or material] | select | join('' '') ~ '' #'' ~ stock_color) | regex_replace(''[^A-Za-z0-9 ._#()+-]'', '''') }}'
+  actions:
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ trigger.id == ''tray'' }}'
+      sequence:
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: "{{ tray_composite >= 0 and tray_usage_cm >= 0.01 and
+              tray_sensor != ''\n   and (old_tray >= 0 or (new_tray >= 0 and new_tray
+              != tray_composite)) }}"
+          sequence:
+          - action: system_log.write
+            data:
+              message: 'STOCK TRAY CHANGE (Creality) | Old tray {{ old_tray
+                }} -> New tray {{ new_tray }} | Flush tray {{ tray_composite }} |
+                Sensor: {{ tray_sensor }} | Spool: {{ name }} ({{ material }}) | Length
+                used: {{ tray_usage_cm }}cm | Material code: {{ material_code }}'
+              level: info
+          - action: shell_command.stock_filament_debit
+            data:
+              key: '{{ stock_key }}'
+              label: '{{ stock_label }}'
+              material: '{{ material | regex_replace(''[^A-Za-z0-9+-]'', '''') }}'
+              length_cm: '{{ tray_usage_cm }}'
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.stock_filament
+          - action: utility_meter.calibrate
+            target:
+              entity_id: sensor.spoolmansync_k2pro_creality_filament_usage_meter
+            data:
+              value: '0'
+        - conditions:
+          - condition: template
+            value_template: '{{ old_tray >= 0 }}'
+          sequence:
+          - action: system_log.write
+            data:
+              message: 'STOCK TRAY CHANGE (Creality, no usage logged) | Old:
+                {{ old_tray }} -> New: {{ new_tray }} | Length: {{ tray_usage_cm }}cm
+                | Reason: {{ ''no length to log'' if tray_usage_cm < 0.01 else ''slot
+                sensor not found'' }}'
+              level: '{{ ''warning'' if tray_usage_cm >= 0.01 else ''debug'' }}'
+          - action: utility_meter.calibrate
+            target:
+              entity_id: sensor.spoolmansync_k2pro_creality_filament_usage_meter
+            data:
+              value: '0'
+        default:
+        - action: system_log.write
+          data:
+            message: 'STOCK TRAY CHANGE (Creality, meter preserved) | Old:
+              {{ old_tray }} -> New: {{ new_tray }} | Length: {{ tray_usage_cm }}cm
+              | Last tray: {{ helper_tray }}'
+            level: info
+      - condition: template
+        value_template: '{{ new_tray >= 0 }}'
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.spoolmansync_k2pro_creality_last_tray
+        data:
+          value: '{{ new_tray }}'
+      - action: system_log.write
+        data:
+          message: STOCK HELPER UPDATED | input_number.spoolmansync_k2pro_creality_last_tray
+            -> {{ new_tray }}
+          level: info
+    - conditions:
+      - condition: template
+        value_template: "{{ trigger.id == 'print_end'\n   and trigger.from_state is
+          not none\n   and trigger.from_state.state not in ['unavailable', 'unknown',
+          'idle', 'completed', 'none'] }}"
+      sequence:
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: '{{ tray_composite >= 0 and tray_usage_cm >= 0.01 and
+              tray_sensor != '''' }}'
+          sequence:
+          - action: system_log.write
+            data:
+              message: 'STOCK PRINT END (Creality) | Tray {{ tray_composite
+                }} | Sensor: {{ tray_sensor }} | Spool: {{ name }} ({{ material }})
+                | Length used: {{ tray_usage_cm }}cm | Material code: {{ material_code
+                }}'
+              level: info
+          - action: shell_command.stock_filament_debit
+            data:
+              key: '{{ stock_key }}'
+              label: '{{ stock_label }}'
+              material: '{{ material | regex_replace(''[^A-Za-z0-9+-]'', '''') }}'
+              length_cm: '{{ tray_usage_cm }}'
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.stock_filament
+        default:
+        - action: system_log.write
+          data:
+            message: 'STOCK PRINT END (Creality, skipped) | Tray: {{ tray_composite
+              }} | Length: {{ tray_usage_cm }}cm | Reason: {{ ''no tray in helper''
+              if tray_composite < 0 else ''no length'' }}'
+            level: '{{ ''warning'' if tray_usage_cm >= 0.01 else ''info'' }}'
+      - action: utility_meter.calibrate
+        target:
+          entity_id: sensor.spoolmansync_k2pro_creality_filament_usage_meter
+        data:
+          value: '0'
+      - action: system_log.write
+        data:
+          message: STOCK METER RESET after print end (Creality)
+          level: info
+    - conditions:
+      - condition: template
+        value_template: '{{ trigger.id == ''offline'' }}'
+      sequence:
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: '{{ tray_composite >= 0 and tray_usage_cm >= 0.01 and
+              tray_sensor != '''' }}'
+          sequence:
+          - action: system_log.write
+            data:
+              message: 'STOCK OFFLINE FLUSH (Creality) | Tray {{ tray_composite
+                }} | Sensor: {{ tray_sensor }} | Length used: {{ tray_usage_cm }}cm'
+              level: info
+          - action: shell_command.stock_filament_debit
+            data:
+              key: '{{ stock_key }}'
+              label: '{{ stock_label }}'
+              material: '{{ material | regex_replace(''[^A-Za-z0-9+-]'', '''') }}'
+              length_cm: '{{ tray_usage_cm }}'
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.stock_filament
+        default:
+        - action: system_log.write
+          data:
+            message: 'STOCK OFFLINE FLUSH (Creality, skipped) | Tray: {{ tray_composite
+              }} | Length: {{ tray_usage_cm }}cm | Reason: {{ ''no tray in helper''
+              if tray_composite < 0 else ''no length'' if tray_usage_cm < 0.01 else
+              ''tray sensor not found'' }}'
+            level: '{{ ''warning'' if tray_usage_cm >= 0.01 else ''info'' }}'
+      - action: utility_meter.calibrate
+        target:
+          entity_id: sensor.spoolmansync_k2pro_creality_filament_usage_meter
+        data:
+          value: '0'
+      - action: system_log.write
+        data:
+          message: STOCK METER RESET (printer offline) | k2pro_creality
+          level: info
+  mode: single
+- id: stock_filament_liste_deroulante
+  alias: Stock filament - Mettre a jour la liste des filaments
+  description: Remplit la liste deroulante avec les filaments connus du stock.
+  mode: restart
+  triggers:
+  - trigger: state
+    entity_id: sensor.stock_filament
+  - trigger: homeassistant
+    event: start
+  conditions: []
+  actions:
+  - delay: 00:00:05
+  - variables:
+      labels: >-
+        {{ (state_attr('sensor.stock_filament', 'items') or [])
+           | sort(attribute='tracked,label') | map(attribute='option') | select | unique | list }}
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.stock_filament_choix
+    data:
+      options: '{{ labels if labels | length > 0 else [''(aucun filament enregistre)''] }}'

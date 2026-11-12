@@ -1,0 +1,107 @@
+# configuration.yaml - extrait : suivi du stock de filament dans Home Assistant (sans Spoolman)
+# Remplacez 'k2pro_creality' par le prefixe des entites de VOTRE imprimante
+# (integration Home Assistant Creality). Les noms 'spoolmansync_*' sont conserves
+# tels quels : ils correspondent a la configuration reellement testee.
+# Si votre configuration.yaml contient deja un bloc 'template:', 'input_number:'
+# ou 'utility_meter:', FUSIONNEZ ces blocs au lieu de les dupliquer.
+
+# Helper to track last active tray per printer
+input_number:
+  spoolmansync_k2pro_creality_last_tray:
+    name: "SpoolmanSync k2pro_creality Last Tray"
+    min: -1
+    max: 99
+    step: 1
+
+  stock_filament_grammes:
+    name: "Stock filament - Grammes"
+    icon: mdi:weight-gram
+    min: 0
+    max: 20000
+    step: 1
+    mode: box
+    unit_of_measurement: g
+    initial: 1000
+
+input_select:
+  stock_filament_choix:
+    name: "Stock filament - Filament a ajuster"
+    icon: mdi:printer-3d-nozzle
+    options:
+      - "(aucun filament enregistre)"
+
+# Utility meter to track filament usage per printer
+utility_meter:
+  spoolmansync_k2pro_creality_filament_usage_meter:
+    unique_id: spoolmansync-k2pro_creality-filament-usage-meter
+    source: sensor.spoolmansync_k2pro_creality_filament_usage
+    always_available: true
+
+template:
+  # --- SpoolmanSync : capteurs de suivi du filament (k2pro_creality) ---
+  - sensor:
+      # k2pro_creality: Track filament usage during print (Creality - cm)
+      - name: "SpoolmanSync k2pro_creality Filament Usage"
+        unique_id: spoolmansync-k2pro_creality-filament-usage
+        unit_of_measurement: "cm"
+        state: >
+          {{ states('sensor.k2pro_creality_used_material_length') | float(0) }}
+        availability: >
+          {{ states('sensor.k2pro_creality_used_material_length') not in ['unknown', 'unavailable'] }}
+
+      # k2pro_creality: Detect active CFS slot from all sensors
+      - name: "SpoolmanSync k2pro_creality Active Tray"
+        unique_id: spoolmansync-k2pro_creality-active-tray
+        state: >
+          {# Check external spool(s) #}
+          {% if state_attr('sensor.k2pro_creality_cfs_external_filament', 'selected') | int(0) == 1 %}
+            0
+          {% endif %}
+          {# Check CFS Box 1 slots #}
+          {% if state_attr('sensor.k2pro_creality_cfs_box_1_slot_1_filament', 'selected') | int(0) == 1 %}
+            11
+          {% endif %}
+          {% if state_attr('sensor.k2pro_creality_cfs_box_1_slot_2_filament', 'selected') | int(0) == 1 %}
+            12
+          {% endif %}
+          {% if state_attr('sensor.k2pro_creality_cfs_box_1_slot_3_filament', 'selected') | int(0) == 1 %}
+            13
+          {% endif %}
+          {% if state_attr('sensor.k2pro_creality_cfs_box_1_slot_4_filament', 'selected') | int(0) == 1 %}
+            14
+          {% endif %}
+        availability: >
+          {{ expand([
+            'sensor.k2pro_creality_cfs_external_filament',
+            'sensor.k2pro_creality_cfs_box_1_slot_1_filament',
+            'sensor.k2pro_creality_cfs_box_1_slot_2_filament',
+            'sensor.k2pro_creality_cfs_box_1_slot_3_filament',
+            'sensor.k2pro_creality_cfs_box_1_slot_4_filament'
+          ]) | rejectattr('state', 'eq', 'unavailable') | list | count > 0 }}
+
+
+# =============================================================================
+# Stock de filament : script Python + fichier JSON dans /config/stock
+# =============================================================================
+shell_command:
+  stock_filament_debit: >-
+    python3 /config/stock/stock_filament.py debit "{{ key }}" "{{ label }}" "{{ material }}" {{ length_cm }}
+  stock_filament_set: >-
+    python3 /config/stock/stock_filament.py set "{{ query }}" {{ grams }}
+  stock_filament_add: >-
+    python3 /config/stock/stock_filament.py add "{{ query }}" {{ grams }}
+  # Supprime une reference (par ex. l'entree de test) : Outils de developpement > Actions
+  stock_filament_remove: >-
+    python3 /config/stock/stock_filament.py remove "{{ query }}"
+
+command_line:
+  - sensor:
+      name: "Stock filament"
+      unique_id: stock_filament
+      command: "python3 /config/stock/stock_filament.py dump"
+      scan_interval: 3600
+      value_template: "{{ value_json.count }}"
+      json_attributes:
+        - total_g
+        - items
+

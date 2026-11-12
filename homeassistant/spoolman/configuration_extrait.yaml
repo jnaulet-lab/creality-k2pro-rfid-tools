@@ -1,10 +1,15 @@
-# Blocs à ajouter à configuration.yaml (à fusionner avec l'existant)
-# Blocks to merge into your configuration.yaml
-#
-# 'k2pro_creality' = nom de l'imprimante dans HA / printer name in HA
-# CFS : 0 = bobine externe / external spool, 11-14 = CFS box 1 slots 1-4
+# configuration.yaml - extrait : synchro imprimante <-> Spoolman via SpoolmanSync
+# Remplacez 'k2pro_creality' par le prefixe des entites de VOTRE imprimante
+# (integration Home Assistant Creality). Les noms 'spoolmansync_*' sont conserves
+# tels quels : ils correspondent a la configuration reellement testee.
+# Si votre configuration.yaml contient deja un bloc 'template:', 'input_number:'
+# ou 'utility_meter:', FUSIONNEZ ces blocs au lieu de les dupliquer.
+# Remplacez SPOOLMANSYNC_IP (port 3000) et SPOOLMAN_IP (port 7912 par defaut) par l'adresse
+# de la machine qui les heberge (souvent la meme).
+# Le token SpoolmanSync se place dans secrets.yaml (voir secrets.example.yaml) :
+# NE PUBLIEZ JAMAIS votre vrai token.
 
-# Dernier slot actif / last active tray
+# Helper to track last active tray per printer
 input_number:
   spoolmansync_k2pro_creality_last_tray:
     name: "SpoolmanSync k2pro_creality Last Tray"
@@ -12,18 +17,17 @@ input_number:
     max: 99
     step: 1
 
-# Compteur de consommation / filament usage meter
+# Utility meter to track filament usage per printer
 utility_meter:
   spoolmansync_k2pro_creality_filament_usage_meter:
     unique_id: spoolmansync-k2pro_creality-filament-usage-meter
     source: sensor.spoolmansync_k2pro_creality_filament_usage
     always_available: true
 
-# Appels vers SpoolmanSync (webhook) et Spoolman (API)
-# Le token est dans secrets.yaml (voir secrets.example.yaml) / token goes in secrets.yaml
+# REST commands to send updates to SpoolmanSync webhook
 rest_command:
   spoolmansync_update_spool:
-    url: "http://SPOOLMANSYNC_IP:3000/api/webhook"   # <- adapte l'IP / adapt the IP
+    url: "http://SPOOLMANSYNC_IP:3000/api/webhook"
     method: POST
     headers:
       Content-Type: "application/json"
@@ -41,7 +45,7 @@ rest_command:
       }
 
   spoolmansync_tray_change:
-    url: "http://SPOOLMANSYNC_IP:3000/api/webhook"   # <- adapte l'IP / adapt the IP
+    url: "http://SPOOLMANSYNC_IP:3000/api/webhook"
     method: POST
     headers:
       Content-Type: "application/json"
@@ -57,21 +61,22 @@ rest_command:
         "current_print_state": "{{ current_print_state }}"
       }
 
-  # --- Assignation automatique bobine <-> slot CFS ---
+  # --- Assignation automatique des bobines (Spoolman <-> slots du CFS) ---
+  # Adresse de Spoolman : a adapter si besoin (IP de la machine : port 7912 par defaut)
   spoolman_get_spools:
-    url: "http://SPOOLMAN_IP:7912/api/v1/spool"   # <- adapte l'IP / adapt the IP
+    url: "http://SPOOLMAN_IP:7912/api/v1/spool"
     method: get
 
   spoolman_set_tray:
-    url: "http://SPOOLMAN_IP:7912/api/v1/spool/{{ spool_id }}"   # <- adapte l'IP / adapt the IP
+    url: "http://SPOOLMAN_IP:7912/api/v1/spool/{{ spool_id }}"
     method: patch
     content_type: "application/json"
     payload: '{"extra": {"active_tray": {{ tray_value | tojson }} }}'
 
-# Capteurs / sensors  (à ajouter dans ta liste 'template:' existante)
 template:
+  # --- SpoolmanSync : capteurs de suivi du filament (k2pro_creality) ---
   - sensor:
-      # Longueur de filament utilisée pendant l'impression (cm)
+      # k2pro_creality: Track filament usage during print (Creality - cm)
       - name: "SpoolmanSync k2pro_creality Filament Usage"
         unique_id: spoolmansync-k2pro_creality-filament-usage
         unit_of_measurement: "cm"
@@ -80,13 +85,15 @@ template:
         availability: >
           {{ states('sensor.k2pro_creality_used_material_length') not in ['unknown', 'unavailable'] }}
 
-      # Slot actif détecté (0 = externe, 11-14 = CFS box 1)
+      # k2pro_creality: Detect active CFS slot from all sensors
       - name: "SpoolmanSync k2pro_creality Active Tray"
         unique_id: spoolmansync-k2pro_creality-active-tray
         state: >
+          {# Check external spool(s) #}
           {% if state_attr('sensor.k2pro_creality_cfs_external_filament', 'selected') | int(0) == 1 %}
             0
           {% endif %}
+          {# Check CFS Box 1 slots #}
           {% if state_attr('sensor.k2pro_creality_cfs_box_1_slot_1_filament', 'selected') | int(0) == 1 %}
             11
           {% endif %}
@@ -107,3 +114,4 @@ template:
             'sensor.k2pro_creality_cfs_box_1_slot_3_filament',
             'sensor.k2pro_creality_cfs_box_1_slot_4_filament'
           ]) | rejectattr('state', 'eq', 'unavailable') | list | count > 0 }}
+

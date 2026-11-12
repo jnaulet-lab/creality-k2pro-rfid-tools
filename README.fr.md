@@ -1,15 +1,15 @@
-# 🧵 Creality K2 Pro / CFS : RFID personnalisé pour n'importe quelle bobine (+ synchro Spoolman / Home Assistant en option)
+# 🧵 Creality K2 Pro / CFS : RFID personnalisé pour n'importe quelle bobine (+ suivi du stock avec Home Assistant en option)
 
 [English version](README.md)
 
-Rends **n'importe quelle bobine de filament tierce** (eSun, Sunlu, Extrudr...) 100 % compatible avec le **CFS (Creality Filament System)** de la K2 Pro grâce au RFID, avec tes filaments affichés **par fabricant** dans le menu de l'imprimante. En **bonus optionnel**, garde **Spoolman** synchronisé automatiquement via Home Assistant.
+Rends **n'importe quelle bobine de filament tierce** (eSun, Sunlu, Extrudr...) 100 % compatible avec le **CFS (Creality Filament System)** de la K2 Pro grâce au RFID, avec tes filaments affichés **par fabricant** dans le menu de l'imprimante. En **bonus optionnel**, suis ton stock de filament avec Home Assistant, avec un simple compteur de stock ou via Spoolman.
 
 > **Avertissement.** Projet communautaire, sans lien avec Creality. La partie RFID nécessite l'**accès root** à l'imprimante et la modification d'un fichier interne : cela peut annuler la garantie et une erreur peut casser ton menu de filaments. Sauvegarde toujours le fichier d'origine. À utiliser à tes risques.
 
 | | Rôle | Nécessite |
 |---|---|---|
 | **Partie 1 : tags RFID** (guide principal) | Bobines tierces reconnues par le CFS, regroupées par fabricant | Accès root, téléphone NFC, puces RFID |
-| **Partie 2 : synchro Spoolman / Home Assistant** (optionnelle) | Suit la consommation et assigne la bonne bobine Spoolman au slot du CFS | Home Assistant, Spoolman, SpoolmanSync. **Pas de root.** |
+| **Partie 2 : Home Assistant** (optionnelle) | Suit ton stock de filament : l'option A synchronise Spoolman, l'option B tient un compteur de stock dans Home Assistant seul | Home Assistant (et Spoolman pour l'option A). **Pas de root.** |
 
 ---
 
@@ -34,26 +34,26 @@ Par défaut, la K2 Pro ne reconnaît pas les puces RFID tierces et classe toute 
    Connecte-toi ensuite en SSH avec cet identifiant et ce mot de passe. Comme ils sont les mêmes pour tout le monde, ne rends jamais l'imprimante accessible depuis Internet tant que le mode root est activé.
 2. **Sauvegarde** le catalogue, situé dans `/mnt/UDISK/creality/userdata/box/material_database.json`.
 3. Modifie le fichier (voir [Structure du catalogue](#structure-du-catalogue)) pour ajouter tes filaments sous leur propre marque, à la main, avec l'[outil HTML](tools/add_filament.html) ou avec le [script Python](tools/add_filament.py).
-4. Mets l'en-tête à jour : `result.count` et `result.version` (voir [Versionnement](#versionnement)).
+4. Mets l'en-tête à jour : `result.count` et `result.version` (voir [Versionnement](#versionnement)). L'outil HTML et le script Python s'en chargent.
 5. Recopie le fichier au même emplacement via SCP/SFTP, puis redémarre les services ou l'imprimante.
 6. Vérifie le menu de filaments de l'imprimante : tes filaments doivent apparaître regroupés par fabricant ![Menu de filaments par fabricant](docs/images/printer-menu.jpg).
 
 ### Étape 3 : synchroniser le catalogue dans l'appli CFS RFID
 1. Vérifie que le téléphone est sur le même réseau local que l'imprimante.
-2. Ouvre **CFS RFID** et connecte-la à l'imprimante (adresse IP).
+2. Ouvre **CFS RFID** et connecte-la à l'imprimante (adresse IP), le mode root restant activé.
 3. **Télécharge la base de données** de l'imprimante dans l'appli.
 4. Tes marques et filaments sont maintenant sélectionnables ![Liste dans l'appli CFS RFID](docs/images/phone-list.jpg).
 
 ### Étape 4 : écrire les tags
 1. Dans l'appli, sélectionne l'imprimante (*K2 Pro*), la marque, le type (le modèle de filament), la taille de la bobine (par ex. *1 KG*) et la couleur.
-2. Vérifie que le type et la couleur correspondent bien à ce que tu as défini dans le catalogue.
+2. La couleur est enregistrée sous forme de code hexadécimal (ex. `0A4AB6`). La Partie 2 s'en sert, avec la marque et le type, pour identifier la bobine.
 3. Plaque la puce M1 Classic 1K au dos du téléphone pour l'écrire. ![Écriture d'une puce](docs/images/write-tag.jpg)
 
 ### Étape 5 : poser le tag sur la bobine
 ![Tag posé sur une bobine](docs/images/tag-on-spool.jpg)
 
 - **Bobines Creality (réutilisation) :** reprogrammation directe du tag d'origine.
-- **Bobines tierces réutilisables :** colle un tag sur **chaque flanc** de la bobine, avec un gabarit de positionnement imprimé en 3D pour aligner la puce avec le lecteur du CFS ([gabarit de positionnement](3d-models/RDIF_Positioning_Tool/)).
+- **Bobines tierces réutilisables :** colle un tag sur **chaque flanc** de la bobine, avec un gabarit de positionnement imprimé en 3D pour aligner la puce avec le lecteur du CFS ([gabarit de positionnement](3d-models/RFID_Positioning_Tool/)).
 - **Bobines carton sur le support de bobine extérieur :** pose sur un flanc de la bobine un support simple qui accueille la puce ([RFID_Holder](3d-models/RFID_Holder/)).
 - **Bobines jetables / carton (diamètre 55 mm, type eSun) :** utilise un support clipable qui accueille la puce ([Support_RFID_55mm](3d-models/Support_RFID_55mm/)).
 
@@ -91,17 +91,17 @@ Quand un préréglage du slicer est synchronisé, l'imprimante l'ajoute avec `"b
 Un exemple de bloc `base` est disponible dans [`docs/example-entry-base.json`](docs/example-entry-base.json).
 
 ### Utiliser l'outil HTML (le plus simple)
-Pas besoin d'installer quoi que ce soit : ouvre [`tools/add_filament.html`](tools/add_filament.html) dans ton navigateur (double-clic sur le fichier).
+Pas besoin d'installer quoi que ce soit. **Télécharge** [`tools/add_filament.html`](tools/add_filament.html) (sur GitHub, ouvre le fichier et utilise le bouton *Download raw file*, ou télécharge tout le dépôt en ZIP), puis ouvre le fichier téléchargé dans ton navigateur (double-clic). GitHub n'affiche que son code source, il ne l'exécute pas.
 
 1. **Glisse** ton `material_database.json` (récupéré sur l'imprimante) dans la première zone.
 2. **Glisse** tes préréglages de filaments exportés depuis Creality Print dans la deuxième zone (tu peux en glisser plusieurs).
 3. Clique sur **Ajouter les filaments** (ou sur *Aperçu seulement* pour voir ce qui serait fait).
-4. Clique sur **Télécharger le nouveau material_database.json**, puis remplace le fichier sur l'imprimante (étape 5 de la procédure).
+4. Clique sur **Télécharger le nouveau material_database.json**, puis remplace le fichier sur l'imprimante (Étape 2, point 5).
 
 La page fonctionne **hors ligne** : tes fichiers ne sont envoyés nulle part et ton fichier d'origine n'est jamais modifié (garde quand même une sauvegarde). Elle applique exactement les mêmes règles que le script Python ci-dessous.
 
 ### Utiliser le script Python (option)
-Si tu es à l'aise avec Python, tu peux utiliser [`tools/add_filament.py`](tools/add_filament.py) (Python 3, sans dépendance). **Lance-le sur ton ordinateur, sur une copie du catalogue récupérée de l'imprimante**, puis renvoie le résultat.
+Si tu es à l'aise avec Python, tu peux utiliser [`tools/add_filament.py`](tools/add_filament.py) (Python 3, sans dépendance ; la commande s'écrit `python` ou `python3` selon ton système). **Lance-le sur ton ordinateur, sur une copie du catalogue récupérée de l'imprimante**, puis renvoie le résultat.
 
 ```
 python add_filament.py material_database.json eSun_PLA-Basic.json Sunlu_PETG-Basic.json
@@ -133,42 +133,25 @@ Options utiles : `--dry-run` (n'écrit rien), `--out fichier.json` (écrit aille
 
 ---
 
-## Partie 2 (optionnelle) : synchro Spoolman / Home Assistant
+## Partie 2 (optionnelle) : suivre ton filament avec Home Assistant
 
-Passe cette partie si tu n'utilises ni Home Assistant ni Spoolman. Elle ne demande **aucun accès root** et s'appuie sur les tags de la Partie 1.
+Passe cette partie si tu n'utilises pas Home Assistant. Elle ne demande **aucun accès root** et s'appuie sur les tags de la Partie 1. Il y a deux options. Choisis-en **une seule** : elles partagent des assistants, des capteurs et un identifiant d'automation, donc elles ne s'installent pas ensemble.
 
-### Ce qu'il te faut
-Home Assistant avec les composants suivants (versions testées) :
-
-| Composant | Version testée | Remarques |
+| | **Option A : Spoolman** | **Option B : stock dans Home Assistant** |
 |---|---|---|
-| [ha_creality_ws](https://github.com/3dg1luk43/ha_creality_ws) | 0.9.10 | Intégration Home Assistant de l'imprimante |
-| [Spoolman](https://github.com/Donkie/Spoolman) | 0.27.0 | Port 7912 par défaut |
-| [SpoolmanSync](https://github.com/gibz104/SpoolmanSync) | 1.6.14 | Port 3000 par défaut |
+| Principe | imprimante → SpoolmanSync → Home Assistant → Spoolman | imprimante → Home Assistant |
+| Ce qu'il te faut | Home Assistant, Spoolman et SpoolmanSync (un serveur comme un NAS) | Home Assistant seul, plus un petit script Python dans `/config` |
+| Ce que ça apporte | La base de bobines de Spoolman, avec la bonne bobine assignée automatiquement à chaque slot du CFS | Un compteur de stock restant en grammes par filament, un tableau de bord et deux boutons (fixer / ajouter) |
+| Niveau de suivi | Par bobine physique | Par référence de filament (code matière + couleur), pas par bobine |
+| Complexité | Quatre composants, sensibles aux mises à jour | Un script et un fichier JSON |
+| Limite principale | Ne sait pas laquelle de plusieurs bobines identiques est en service (heuristique : la déjà entamée qui a le moins de filament restant) | Ne dit pas quelle bobine est la plus vide ; la précision dépend de la longueur déclarée par l'imprimante, donc pèse une bobine de temps en temps |
+| État | Validée par l'auteur, qui est ensuite passé à l'option B | Validée sur l'installation de l'auteur |
 
-### Fonctionnement
-1. L'intégration expose un capteur par slot du CFS (`sensor.k2pro_creality_cfs_box_1_slot_1_filament`, ...) avec des attributs comme `vendor`, `type`, `color_hex`, `rfid`, `spool_key`, `selected`.
-2. Deux automations SpoolmanSync suivent le slot actif et la longueur de filament consommée (cm), puis l'envoient à SpoolmanSync.
-3. Une troisième automation **assigne la bobine Spoolman au slot** quand une puce est lue : elle cherche dans Spoolman les bobines non archivées du **même fabricant, matériau et couleur** que la puce. S'il y en a plusieurs, elle prend celle déjà entamée qui a le moins de filament restant, sinon la première.
+**Guides :** [Option A : Spoolman](homeassistant/spoolman/README.fr.md) · [Option B : stock dans Home Assistant](homeassistant/stock-ha/README.fr.md)
 
-### Règle de correspondance (importante)
-Dans Spoolman :
-- le **nom du fabricant** doit être identique à la marque écrite sur la puce (ex. `eSun`), sans tenir compte des majuscules ;
-- le **matériau** doit être identique au type de filament (ex. `PLA`) ;
-- le **code couleur hex** doit être identique à la couleur écrite sur la puce (sans `#`, majuscules ou minuscules sans importance).
+**Testé avec :** Home Assistant OS 18.5 et Creality WebSocket Integration ([ha_creality_ws](https://github.com/3dg1luk43/ha_creality_ws)) 0.9.10. L'option A a aussi été testée avec [Spoolman](https://github.com/Donkie/Spoolman) 0.27.0 et [SpoolmanSync](https://github.com/gibz104/SpoolmanSync) 1.6.14.
 
-### Installation
-1. Installe et configure Spoolman et SpoolmanSync, puis ajoute ton imprimante dans SpoolmanSync.
-2. Ajoute les blocs de [`homeassistant/configuration_spoolmansync.yaml`](homeassistant/configuration_spoolmansync.yaml) à ton `configuration.yaml`, en remplaçant `k2pro_creality` par le nom de ton imprimante et les IP d'exemple (`SPOOLMAN_IP`, `SPOOLMANSYNC_IP`) par les tiennes.
-3. Mets le token du webhook dans `secrets.yaml` (voir [`homeassistant/secrets.example.yaml`](homeassistant/secrets.example.yaml)). **Ne publie jamais ton vrai token.**
-4. Ajoute les trois automations de [`homeassistant/automations_spoolmansync.yaml`](homeassistant/automations_spoolmansync.yaml). Dans la dernière, renseigne `printer_ip` avec l'IP de ton imprimante.
-5. Redémarre Home Assistant.
-6. **Teste d'abord :** `dry_run` est à `true` par défaut, l'automation envoie alors seulement une notification indiquant la bobine qu'elle *assignerait*. Insère une bobine avec puce, vérifie la notification, puis passe `dry_run: false`.
-
-### Bon à savoir
-- **Index des slots :** SpoolmanSync compte les slots à partir de 0, donc le slot 1 du CFS correspond à l'index 0. L'automation gère ce décalage (`slot_num - 1`).
-- **Bobine externe :** la clé de plateau `cfs_external_filament` est à vérifier sur ton installation.
-- Si aucune bobine ne correspond, une notification persistante te demande de l'assigner à la main dans SpoolmanSync.
+Les deux options s'appuient sur les capteurs que l'intégration expose pour chaque slot du CFS (par exemple `sensor.k2pro_creality_cfs_box_1_slot_1_filament`, avec des attributs comme `vendor`, `type`, `color_hex`, `rfid`, `spool_key` et `selected`). L'attribut `spool_key` correspond au fabricant et à la couleur, **pas** à un numéro de puce unique : Home Assistant ne peut pas distinguer deux bobines identiques.
 
 ---
 

@@ -1,8 +1,8 @@
-# Automations SpoolmanSync pour Creality K2 Pro + CFS
-# Copier ces 3 automations dans automations.yaml (ou les recréer en mode YAML dans l'UI).
-# Remplace 'k2pro_creality' par le nom de ton imprimante dans HA si besoin.
-# SpoolmanSync / Spoolman automations for Creality K2 Pro + CFS (see README).
-
+# automations.yaml - extrait : variante Spoolman / SpoolmanSync
+# - consommation envoyee a SpoolmanSync a chaque changement de slot et en fin d'impression
+# - assignation automatique de la bobine Spoolman au slot du CFS (et au support externe)
+# Index des slots : SpoolmanSync compte a partir de 0 (slot 1 du CFS -> 'slot_0').
+# Remplacez 192.168.1.XXX par l'adresse IP de VOTRE imprimante.
 - id: spoolmansync_update_spool_k2pro_creality
   alias: SpoolmanSync - Update Spool (k2pro_creality)
   description: Track spool usage and sync with Spoolman (Creality)
@@ -286,8 +286,8 @@
       {% endif %}
   actions:
   - variables:
-      dry_run: true   # <- passe à false pour activer l'assignation réelle
-      printer_ip: 192.168.1.XXX   # <- IP de ton imprimante (la même que dans SpoolmanSync)
+      dry_run: true   # <- passer a false pour activer l'assignation reelle (true = notification seulement)
+      printer_ip: 192.168.1.XXX   # <- adresse IP de votre imprimante
       # Cle de plateau de la bobine externe (a verifier, voir explications)
       external_tray: cfs_external_filament
   - variables:
