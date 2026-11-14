@@ -98,6 +98,10 @@ _Rien pour le moment. / Nothing yet._
 - Option A : impossible de distinguer deux bobines identiques (même fabricant, matériau et couleur).
 - Option B : suivi par référence de filament, pas par bobine ; la précision dépend de la longueur déclarée par l'imprimante.
 
+**Corrigé**
+- ...
+- **README racine (FR et EN)** : correction du tableau comparatif des options A/B, auquel il manquait des colonnes et qui était de ce fait incompréhensible.
+
 ### English
 
 **Added**
@@ -121,4 +125,8 @@ _Rien pour le moment. / Nothing yet._
 - Root access edits an internal printer file: warranty risk, a backup is essential.
 - Option A: two identical spools (same vendor, material and color) cannot be told apart.
 - Option B: tracking is per filament reference, not per spool; accuracy depends on the length the printer reports.
+
+**Fixed**
+- ...
+- **Root README (FR and EN)**: fixed the A/B options comparison table, which was missing columns and therefore unreadable.
 
