@@ -137,17 +137,17 @@ Useful options: `--dry-run` (writes nothing), `--out file.json` (writes elsewher
 
 Skip this part if you do not use Home Assistant. It needs **no root access** and builds on the tags from Part 1. There are two options. Choose **one** of them: they share helpers, sensors and an automation id, so they cannot be installed together.
 
-**Option A: Spoolman** | **Option B: stock in Home Assistant**
----|---
-Principle | printer → SpoolmanSync → Home Assistant → Spoolman | printer → Home Assistant
-What you need | Home Assistant, Spoolman and SpoolmanSync (a server such as a NAS) | Home Assistant only, plus a small Python script in `/config`
-What it gives you | Spoolman's spool database, with the matching spool assigned automatically to each CFS slot | A remaining-stock counter in grams per filament, a clickable tile grid, a search field, a material filter, a low-stock threshold and a persistent notification
-Tracking level | Per physical spool | Per filament reference (material code + color), not per spool
-Complexity | Four components, sensitive to updates | One script, one debit automation, one alert automation, two button scripts and one dashboard view
-Main limit | Cannot tell which of several identical spools is in use (heuristic: the already started one with the least filament left) | Does not tell which spool is emptiest; accuracy depends on the length the printer reports, so weigh a spool now and then
-Status | Validated by the author, who then moved to option B | Validated on the author's installation
+| | **Option A: Spoolman** | **Option B: stock in Home Assistant** |
+|---|---|---|
+| Principle | printer → SpoolmanSync → Home Assistant → Spoolman | printer → Home Assistant |
+| What you need | Home Assistant, Spoolman and SpoolmanSync (a server such as a NAS) | Home Assistant only, plus a small Python script in `/config` |
+| What it gives you | Spoolman's spool database, with the matching spool assigned automatically to each CFS slot | A remaining-stock counter in grams per filament, a dashboard table, two buttons (set / add) and a low-stock alert |
+| Tracking level | Per physical spool | Per filament reference (material code + color), not per spool |
+| Complexity | Four components, sensitive to updates | One script and one JSON file |
+| Main limit | Cannot tell which of several identical spools is in use (heuristic: the already started one with the least filament left) | Does not tell which spool is emptiest; accuracy depends on the length the printer reports, so weigh a spool now and then |
+| Status | Validated by the author, who then moved to option B | Validated on the author's installation |
 
-**Guides:** Option A: Spoolman · Option B: stock in Home Assistant
+**Guides:** [Option A: Spoolman](homeassistant/spoolman/README.md) · [Option B: stock in Home Assistant](homeassistant/stock-ha/README.md)
 
 **Tested with:** Home Assistant OS 18.5 and Creality WebSocket Integration (ha_creality_ws) 0.9.10. Option A was also tested with Spoolman 0.27.0 and SpoolmanSync 1.6.14. Option B uses the `auto-entities` and `mushroom` cards.
 
