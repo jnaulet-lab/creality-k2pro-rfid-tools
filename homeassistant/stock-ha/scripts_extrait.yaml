@@ -1,31 +1,43 @@
 # scripts.yaml - extrait : boutons 'Fixer le stock' et 'Ajouter au stock'
-# Ils lisent la liste deroulante (input_select.stock_filament_choix) et le champ de grammes
-# (input_number.stock_filament_grammes), puis appellent le script Python.
+# Ils lisent la CLE stockee dans input_text.stock_filament_selection (remplie par
+# la grille de pastilles du dashboard) et le champ input_number.stock_filament_grammes.
 # Les scripts crees via l'interface prennent un identifiant derive de leur nom : adaptez-le
 # dans la carte du tableau de bord (dashboard_extrait.yaml) si le votre est different.
 stock_filament_fixer_le_stock:
   alias: Stock filament - Fixer le stock
   icon: mdi:scale
   sequence:
-  - condition: template
-    value_template: '{{ states(''input_select.stock_filament_choix'') not in [''(aucun filament enregistre)'', ''unknown'', ''unavailable''] }}'
-  - action: shell_command.stock_filament_set
-    data:
-      query: '{{ states(''input_select.stock_filament_choix'') | regex_replace(''[^A-Za-z0-9 ._#()+-]'', '''') }}'
-      grams: '{{ states(''input_number.stock_filament_grammes'') | float(0) }}'
-  - action: homeassistant.update_entity
-    target:
-      entity_id: sensor.stock_filament
+    - variables:
+        sel: "{{ states('input_text.stock_filament_selection') }}"
+        key: >-
+          {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
+          {% set hit = items | selectattr('key', 'eq', sel) | list %}
+          {{ hit[0].key if hit | length == 1 else '' }}
+    - condition: template
+      value_template: "{{ key != '' }}"
+    - action: shell_command.stock_filament_set
+      data:
+        query: "{{ key }}"
+        grams: "{{ states('input_number.stock_filament_grammes') | float(0) }}"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.stock_filament
 stock_filament_ajouter_au_stock:
   alias: Stock filament - Ajouter au stock
   icon: mdi:plus-box
   sequence:
-  - condition: template
-    value_template: '{{ states(''input_select.stock_filament_choix'') not in [''(aucun filament enregistre)'', ''unknown'', ''unavailable''] }}'
-  - action: shell_command.stock_filament_add
-    data:
-      query: '{{ states(''input_select.stock_filament_choix'') | regex_replace(''[^A-Za-z0-9 ._#()+-]'', '''') }}'
-      grams: '{{ states(''input_number.stock_filament_grammes'') | float(0) }}'
-  - action: homeassistant.update_entity
-    target:
-      entity_id: sensor.stock_filament
+    - variables:
+        sel: "{{ states('input_text.stock_filament_selection') }}"
+        key: >-
+          {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
+          {% set hit = items | selectattr('key', 'eq', sel) | list %}
+          {{ hit[0].key if hit | length == 1 else '' }}
+    - condition: template
+      value_template: "{{ key != '' }}"
+    - action: shell_command.stock_filament_add
+      data:
+        query: "{{ key }}"
+        grams: "{{ states('input_number.stock_filament_grammes') | float(0) }}"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.stock_filament

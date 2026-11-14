@@ -133,25 +133,25 @@ Options utiles : `--dry-run` (n'écrit rien), `--out fichier.json` (écrit aille
 
 ---
 
-## Partie 2 (optionnelle) : suivre ton filament avec Home Assistant
+## Partie 2 (facultative) : suivre ton filament avec Home Assistant
 
-Passe cette partie si tu n'utilises pas Home Assistant. Elle ne demande **aucun accès root** et s'appuie sur les tags de la Partie 1. Il y a deux options. Choisis-en **une seule** : elles partagent des assistants, des capteurs et un identifiant d'automation, donc elles ne s'installent pas ensemble.
+Ignore cette partie si tu n'utilises pas Home Assistant. Elle ne nécessite **aucun accès root** et s'appuie sur les tags de la Partie 1. Deux options sont proposées. Choisis-en **une seule** : elles partagent des assistants, des capteurs et un identifiant d'automation, et ne peuvent pas être installées ensemble.
 
-| | **Option A : Spoolman** | **Option B : stock dans Home Assistant** |
-|---|---|---|
-| Principe | imprimante → SpoolmanSync → Home Assistant → Spoolman | imprimante → Home Assistant |
-| Ce qu'il te faut | Home Assistant, Spoolman et SpoolmanSync (un serveur comme un NAS) | Home Assistant seul, plus un petit script Python dans `/config` |
-| Ce que ça apporte | La base de bobines de Spoolman, avec la bonne bobine assignée automatiquement à chaque slot du CFS | Un compteur de stock restant en grammes par filament, un tableau de bord et deux boutons (fixer / ajouter) |
-| Niveau de suivi | Par bobine physique | Par référence de filament (code matière + couleur), pas par bobine |
-| Complexité | Quatre composants, sensibles aux mises à jour | Un script et un fichier JSON |
-| Limite principale | Ne sait pas laquelle de plusieurs bobines identiques est en service (heuristique : la déjà entamée qui a le moins de filament restant) | Ne dit pas quelle bobine est la plus vide ; la précision dépend de la longueur déclarée par l'imprimante, donc pèse une bobine de temps en temps |
-| État | Validée par l'auteur, qui est ensuite passé à l'option B | Validée sur l'installation de l'auteur |
+**Option A : Spoolman** | **Option B : stock dans Home Assistant**
+---|---
+Principe | imprimante → SpoolmanSync → Home Assistant → Spoolman | imprimante → Home Assistant
+Ce qu'il te faut | Home Assistant, Spoolman et SpoolmanSync (sur un serveur type NAS) | Home Assistant seul, plus un petit script Python dans `/config`
+Ce que ça te donne | La base de bobines de Spoolman, avec la bobine correspondante affectée automatiquement à chaque slot du CFS | Un compteur de stock restant en grammes par filament, une grille de pastilles cliquable, un champ de recherche, un filtre matière, un seuil d'alerte de stock bas et une notification persistante
+Niveau de suivi | Par bobine physique | Par référence de filament (code matière + couleur), pas par bobine
+Complexité | Quatre composants, sensibles aux mises à jour | Un script, une automation de débit, une automation d'alerte, deux scripts de bouton et une vue de tableau de bord
+Limite principale | Impossible de savoir laquelle de plusieurs bobines identiques est en service (heuristique : la bobine déjà entamée avec le moins de filament restant) | Ne dit pas quelle bobine est la plus vide ; la précision dépend de la longueur rapportée par l'imprimante, donc pèse une bobine de temps en temps
+Statut | Validé par l'auteur, qui est ensuite passé à l'option B | Validé sur l'installation de l'auteur
 
-**Guides :** [Option A : Spoolman](homeassistant/spoolman/README.fr.md) · [Option B : stock dans Home Assistant](homeassistant/stock-ha/README.fr.md)
+**Guides :** Option A : Spoolman · Option B : stock dans Home Assistant
 
-**Testé avec :** Home Assistant OS 18.5 et Creality WebSocket Integration ([ha_creality_ws](https://github.com/3dg1luk43/ha_creality_ws)) 0.9.10. L'option A a aussi été testée avec [Spoolman](https://github.com/Donkie/Spoolman) 0.27.0 et [SpoolmanSync](https://github.com/gibz104/SpoolmanSync) 1.6.14.
+**Testé avec :** Home Assistant OS 18.5 et Creality WebSocket Integration (ha_creality_ws) 0.9.10. L'option A a aussi été testée avec Spoolman 0.27.0 et SpoolmanSync 1.6.14. L'option B utilise les cartes `auto-entities` et `mushroom`.
 
-Les deux options s'appuient sur les capteurs que l'intégration expose pour chaque slot du CFS (par exemple `sensor.k2pro_creality_cfs_box_1_slot_1_filament`, avec des attributs comme `vendor`, `type`, `color_hex`, `rfid`, `spool_key` et `selected`). L'attribut `spool_key` correspond au fabricant et à la couleur, **pas** à un numéro de puce unique : Home Assistant ne peut pas distinguer deux bobines identiques.
+Les deux options s'appuient sur les capteurs exposés par l'intégration pour chaque slot du CFS (par exemple `sensor.k2pro_creality_cfs_box_1_slot_1_filament`, avec des attributs comme `vendor`, `type`, `color_hex`, `rfid`, `spool_key` et `selected`). L'attribut `spool_key` correspond à la marque et à la couleur, **pas** à un numéro de tag unique : Home Assistant ne peut pas distinguer deux bobines identiques.
 
 ---
 
@@ -162,4 +162,4 @@ Ce projet s'appuie sur le travail d'autres personnes :
 
 **Licences :** configuration Home Assistant et outils (`homeassistant/`, `tools/`) sous licence [MIT](LICENSES/MIT.txt) ; modèles 3D et documentation (`3d-models/`, `docs/`) sous licence [CC BY-SA 4.0](LICENSES/CC-BY-SA-4.0.txt). Détails dans [LICENSE](LICENSE).
 
-Voir aussi [CONTRIBUTING.md](CONTRIBUTING.md).
+Voir aussi [CONTRIBUTING.md](CONTRIBUTING.md) et le [CHANGELOG](CHANGELOG.md).

@@ -137,19 +137,19 @@ Useful options: `--dry-run` (writes nothing), `--out file.json` (writes elsewher
 
 Skip this part if you do not use Home Assistant. It needs **no root access** and builds on the tags from Part 1. There are two options. Choose **one** of them: they share helpers, sensors and an automation id, so they cannot be installed together.
 
-| | **Option A: Spoolman** | **Option B: stock in Home Assistant** |
-|---|---|---|
-| Principle | printer → SpoolmanSync → Home Assistant → Spoolman | printer → Home Assistant |
-| What you need | Home Assistant, Spoolman and SpoolmanSync (a server such as a NAS) | Home Assistant only, plus a small Python script in `/config` |
-| What it gives you | Spoolman's spool database, with the matching spool assigned automatically to each CFS slot | A remaining-stock counter in grams per filament, a dashboard table and two buttons (set / add) |
-| Tracking level | Per physical spool | Per filament reference (material code + color), not per spool |
-| Complexity | Four components, sensitive to updates | One script and one JSON file |
-| Main limit | Cannot tell which of several identical spools is in use (heuristic: the already started one with the least filament left) | Does not tell which spool is emptiest; accuracy depends on the length the printer reports, so weigh a spool now and then |
-| Status | Validated by the author, who then moved to option B | Validated on the author's installation |
+**Option A: Spoolman** | **Option B: stock in Home Assistant**
+---|---
+Principle | printer → SpoolmanSync → Home Assistant → Spoolman | printer → Home Assistant
+What you need | Home Assistant, Spoolman and SpoolmanSync (a server such as a NAS) | Home Assistant only, plus a small Python script in `/config`
+What it gives you | Spoolman's spool database, with the matching spool assigned automatically to each CFS slot | A remaining-stock counter in grams per filament, a clickable tile grid, a search field, a material filter, a low-stock threshold and a persistent notification
+Tracking level | Per physical spool | Per filament reference (material code + color), not per spool
+Complexity | Four components, sensitive to updates | One script, one debit automation, one alert automation, two button scripts and one dashboard view
+Main limit | Cannot tell which of several identical spools is in use (heuristic: the already started one with the least filament left) | Does not tell which spool is emptiest; accuracy depends on the length the printer reports, so weigh a spool now and then
+Status | Validated by the author, who then moved to option B | Validated on the author's installation
 
-**Guides:** [Option A: Spoolman](homeassistant/spoolman/README.md) · [Option B: stock in Home Assistant](homeassistant/stock-ha/README.md)
+**Guides:** Option A: Spoolman · Option B: stock in Home Assistant
 
-**Tested with:** Home Assistant OS 18.5 and Creality WebSocket Integration ([ha_creality_ws](https://github.com/3dg1luk43/ha_creality_ws)) 0.9.10. Option A was also tested with [Spoolman](https://github.com/Donkie/Spoolman) 0.27.0 and [SpoolmanSync](https://github.com/gibz104/SpoolmanSync) 1.6.14.
+**Tested with:** Home Assistant OS 18.5 and Creality WebSocket Integration (ha_creality_ws) 0.9.10. Option A was also tested with Spoolman 0.27.0 and SpoolmanSync 1.6.14. Option B uses the `auto-entities` and `mushroom` cards.
 
 Both options rely on the sensors the integration exposes for each CFS slot (for example `sensor.k2pro_creality_cfs_box_1_slot_1_filament`, with attributes such as `vendor`, `type`, `color_hex`, `rfid`, `spool_key` and `selected`). The `spool_key` attribute matches the brand and the color, **not** a unique tag number: Home Assistant cannot tell two identical spools apart.
 
@@ -162,4 +162,4 @@ This project builds on the work of others:
 
 **Licenses:** Home Assistant configuration and tools (`homeassistant/`, `tools/`) under the [MIT license](LICENSES/MIT.txt); 3D models and documentation (`3d-models/`, `docs/`) under [CC BY-SA 4.0](LICENSES/CC-BY-SA-4.0.txt). Details in [LICENSE](LICENSE).
 
-See also [CONTRIBUTING.md](CONTRIBUTING.md).
+See also [CONTRIBUTING.md](CONTRIBUTING.md) and the [CHANGELOG](CHANGELOG.md).

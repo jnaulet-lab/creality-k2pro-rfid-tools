@@ -5,13 +5,22 @@
 # Si votre configuration.yaml contient deja un bloc 'template:', 'input_number:'
 # ou 'utility_meter:', FUSIONNEZ ces blocs au lieu de les dupliquer.
 
-# Helper to track last active tray per printer
+# Helper de suivi du dernier slot actif (composite 0/11/12/13/14)
 input_number:
   spoolmansync_k2pro_creality_last_tray:
     name: "SpoolmanSync k2pro_creality Last Tray"
     min: -1
     max: 99
     step: 1
+
+  # Reference de longueur utilisee, pour calculer le delta entre deux triggers
+  k2pro_creality_last_used_length:
+    name: "K2 Pro - Reference longueur utilisee"
+    min: 0
+    max: 1000000
+    step: 0.01
+    mode: box
+    unit_of_measurement: "cm"
 
   stock_filament_grammes:
     name: "Stock filament - Grammes"
@@ -21,26 +30,97 @@ input_number:
     step: 1
     mode: box
     unit_of_measurement: g
-    initial: 1000
+    # Pas de 'initial' : evite de valider 1000 g fictifs avant pesee.
 
+  stock_filament_seuil_alerte:
+    name: "Stock filament - Seuil d'alerte"
+    icon: mdi:bell-alert
+    min: 0
+    max: 5000
+    step: 10
+    mode: box
+    unit_of_measurement: g
+    # Pas de 'initial' : la valeur choisie est conservee apres un redemarrage.
+    # 0 = alertes desactivees.
+
+# Selection du filament a ajuster : on stocke la CLE interne (i.key), pas le
+# libelle. La grille de pastilles du dashboard ecrit ici sur tap_action.
+input_text:
+  stock_filament_selection:
+    name: "Stock filament - Selection"
+    icon: mdi:cursor-default-click
+    max: 255
+  stock_filament_recherche:
+    name: "Stock filament - Recherche"
+    icon: mdi:magnify
+    max: 100
+
+# Filtre matiere pour la grille de pastilles (option "Tous" = pas de filtre).
 input_select:
-  stock_filament_choix:
-    name: "Stock filament - Filament a ajuster"
-    icon: mdi:printer-3d-nozzle
+  stock_filament_filtre_matiere:
+    name: "Stock filament - Filtre matiere"
+    icon: mdi:filter-variant
     options:
-      - "(aucun filament enregistre)"
+      - "Tous"
+      - "PLA"
+      - "PETG"
+      - "ABS"
+      - "ASA"
+      - "TPU"
+      - "Autre"
 
-# Utility meter to track filament usage per printer
+# Masque les bobines dont le stock est a 0 g ou negatif (bobines vides).
+input_boolean:
+  stock_filament_masquer_vides:
+    name: "Stock filament - Masquer les bobines vides"
+    icon: mdi:eye-off-outline
+
+# =============================================================================
+# Heritage SpoolmanSync (option A). NON utilise par l'automation de l'option B,
+# qui calcule le debit par delta sur sensor.k2pro_creality_used_material_length.
+# Conserve car le capteur 'Active Tray' (plus bas) en depend, et parce que
+# certains utilisateurs ont les deux options dans leur historique.
+# Vous pouvez supprimer ce bloc si vous n'avez jamais installe l'option A.
+# =============================================================================
 utility_meter:
   spoolmansync_k2pro_creality_filament_usage_meter:
     unique_id: spoolmansync-k2pro_creality-filament-usage-meter
     source: sensor.spoolmansync_k2pro_creality_filament_usage
     always_available: true
 
+# =============================================================================
+# Stock de filament : script Python + fichier JSON dans /config/stock
+# =============================================================================
+shell_command:
+  stock_filament_debit: >-
+    python3 /config/stock/stock_filament.py debit "{{ key }}" "{{ label }}" "{{ material }}" {{ length_cm }}
+  stock_filament_set: >-
+    python3 /config/stock/stock_filament.py set "{{ query }}" {{ grams }}
+  stock_filament_add: >-
+    python3 /config/stock/stock_filament.py add "{{ query }}" {{ grams }}
+  # Supprime une reference (par ex. l'entree de test) : Outils de developpement > Actions
+  stock_filament_remove: >-
+    python3 /config/stock/stock_filament.py remove "{{ query }}"
+
+command_line:
+  - sensor:
+      name: "Stock filament"
+      unique_id: stock_filament
+      command: "python3 /config/stock/stock_filament.py dump"
+      scan_interval: 3600
+      value_template: "{{ value_json.count }}"
+      json_attributes:
+        - total_g
+        - items
+
 template:
   # --- SpoolmanSync : capteurs de suivi du filament (k2pro_creality) ---
   - sensor:
       # k2pro_creality: Track filament usage during print (Creality - cm)
+      # Heritage SpoolmanSync : alimente l'utility_meter ci-dessus. NON lu par
+      # l'automation de l'option B (qui utilise directement
+      # sensor.k2pro_creality_used_material_length). Peut etre supprime si vous
+      # n'avez jamais installe l'option A.
       - name: "SpoolmanSync k2pro_creality Filament Usage"
         unique_id: spoolmansync-k2pro_creality-filament-usage
         unit_of_measurement: "cm"
@@ -50,6 +130,7 @@ template:
           {{ states('sensor.k2pro_creality_used_material_length') not in ['unknown', 'unavailable'] }}
 
       # k2pro_creality: Detect active CFS slot from all sensors
+      # REQUIS par l'option B : l'automation de debit lit ce capteur.
       - name: "SpoolmanSync k2pro_creality Active Tray"
         unique_id: spoolmansync-k2pro_creality-active-tray
         state: >
@@ -78,30 +159,3 @@ template:
             'sensor.k2pro_creality_cfs_box_1_slot_3_filament',
             'sensor.k2pro_creality_cfs_box_1_slot_4_filament'
           ]) | rejectattr('state', 'eq', 'unavailable') | list | count > 0 }}
-
-
-# =============================================================================
-# Stock de filament : script Python + fichier JSON dans /config/stock
-# =============================================================================
-shell_command:
-  stock_filament_debit: >-
-    python3 /config/stock/stock_filament.py debit "{{ key }}" "{{ label }}" "{{ material }}" {{ length_cm }}
-  stock_filament_set: >-
-    python3 /config/stock/stock_filament.py set "{{ query }}" {{ grams }}
-  stock_filament_add: >-
-    python3 /config/stock/stock_filament.py add "{{ query }}" {{ grams }}
-  # Supprime une reference (par ex. l'entree de test) : Outils de developpement > Actions
-  stock_filament_remove: >-
-    python3 /config/stock/stock_filament.py remove "{{ query }}"
-
-command_line:
-  - sensor:
-      name: "Stock filament"
-      unique_id: stock_filament
-      command: "python3 /config/stock/stock_filament.py dump"
-      scan_interval: 3600
-      value_template: "{{ value_json.count }}"
-      json_attributes:
-        - total_g
-        - items
-

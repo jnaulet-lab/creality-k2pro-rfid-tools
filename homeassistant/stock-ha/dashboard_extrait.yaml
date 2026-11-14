@@ -1,54 +1,140 @@
-# Section de tableau de bord : stock de filament (tableau + carte 'Ajuster le stock')
-# A coller dans la liste 'sections:' d'une vue de type 'Sections'
+# dashboard.yaml - extrait : vue 'Filaments' (stock de filament)
+# A coller comme element de la liste 'views:' de votre tableau de bord
 # (Tableau de bord > Modifier > menu a trois points > Editeur de configuration brut).
-# Les boutons appellent les scripts de scripts_extrait.yaml :
-# script.stock_filament_fixer_le_stock et script.stock_filament_ajouter_au_stock
-# (adaptez ces identifiants si vos scripts en ont d'autres).
-# La pastille de couleur est une image SVG integree : les styles CSS inline sont filtres
-# par la carte Markdown.
-type: grid
-columns: 1
-cards:
-  - type: heading
-    heading: Gestion du Stock de Filament
-    heading_style: title
-    icon: mdi:package-variant-closed
-  - type: markdown
-    title: Stock de bobines
-    content: >
-      {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
-
-      **Total suivi : {{ (state_attr('sensor.stock_filament', 'total_g') or 0) |
-      round(0) | int }} g**
-
-
-      | Couleur | Filament | Reste |
-
-      |:---:|---|---:|
-
-      {% for i in items -%}
-
-      | {% if i.color %}<img src="data:image/svg+xml,%3Csvg
-      xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24'
-      cy='24' r='23' fill='%23{{ i.color }}'/%3E%3Ccircle cx='24' cy='24' r='23'
-      fill='none' stroke='gray' stroke-opacity='.6'
-      stroke-width='2'/%3E%3Ccircle cx='24' cy='24' r='8' fill='black'
-      fill-opacity='.45'/%3E%3C/svg%3E" width="24" height="24" alt="{{ i.dot
-      }}">{% else %}{{ i.dot }}{% endif %} | {{ i.name }} | {% if i.tracked %}{{
-      i.stock_g | round(0) | int }} g{% else %}⚠️ stock à saisir ({{ i.stock_g |
-      round(0) | int }} g){% endif %} |
-
-      {% endfor %}
-  - type: entities
-    title: Ajuster le stock
-    entities:
-      - entity: input_select.stock_filament_choix
-        name: Filament
-      - entity: input_number.stock_filament_grammes
+# Necessite les cartes custom : auto-entities et mushroom.
+# Les boutons appellent les scripts de scripts_extrait.yaml.
+# La grille de pastilles ecrit la CLE interne dans input_text.stock_filament_selection.
+type: sections
+title: Filaments
+path: filaments
+icon: mdi:package-variant-closed
+max_columns: 4
+sections:
+  - type: grid
+    columns: 1
+    cards:
+      - type: heading
+        heading: Stock de filaments
+        heading_style: title
+        icon: mdi:package-variant-closed
+      - type: markdown
+        content: >-
+          {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
+          {% set q = states('input_text.stock_filament_recherche') | lower | trim %}
+          {% set mat = states('input_select.stock_filament_filtre_matiere') %}
+          {% set masquer = is_state('input_boolean.stock_filament_masquer_vides', 'on') %}
+          {% set visibles = items %}
+          {% if mat != 'Tous' %}{% set visibles = visibles | selectattr('label', 'search', mat, 'ignorecase') | list %}{% endif %}
+          {% if q %}{% set visibles = visibles | selectattr('label', 'search', q, 'ignorecase') | list %}{% endif %}
+          {% if masquer %}{% set visibles = visibles | rejectattr('stock_g', 'le', 0) | list %}{% endif %}
+          **{{ visibles | length }} / {{ items | length }} bobines affichees** · Total suivi : {{ (state_attr('sensor.stock_filament', 'total_g') or 0) | round(0) | int }} g
+      - type: custom:mushroom-template-card
+        primary: Recherche
+        secondary: >-
+          {% set q = states('input_text.stock_filament_recherche') %}
+          {{ q if q else 'Appuyer pour rechercher' }}
+        icon: mdi:magnify
+        icon_color: blue
+        tap_action:
+          action: more-info
+          entity: input_text.stock_filament_recherche
+      - type: custom:mushroom-select-card
+        entity: input_select.stock_filament_filtre_matiere
+        name: Matiere
+        icon: mdi:filter-variant
+      - type: custom:mushroom-entity-card
+        entity: input_boolean.stock_filament_masquer_vides
+        name: Masquer les vides
+        icon: mdi:eye-off-outline
+        tap_action:
+          action: toggle
+  - type: custom:auto-entities
+    card:
+      type: grid
+      columns: 2
+      square: false
+    card_param: cards
+    filter:
+      template: >-
+        {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
+        {% set q = states('input_text.stock_filament_recherche') | lower | trim %}
+        {% set mat = states('input_select.stock_filament_filtre_matiere') %}
+        {% set masquer = is_state('input_boolean.stock_filament_masquer_vides', 'on') %}
+        {% set selection = states('input_text.stock_filament_selection') %}
+        {% if mat != 'Tous' %}
+          {% set items = items | selectattr('label', 'search', mat, 'ignorecase') | list %}
+        {% endif %}
+        {% if q %}
+          {% set items = items | selectattr('label', 'search', q, 'ignorecase') | list %}
+        {% endif %}
+        {% if masquer %}
+          {% set items = items | rejectattr('stock_g', 'le', 0) | list %}
+        {% endif %}
+        {% set items = items | sort(attribute='label') %}
+        {% set utilises = items | selectattr('last_used', 'defined') | list %}
+        {% set autres = items | rejectattr('last_used', 'defined') | list %}
+        {% set utilises = utilises | sort(attribute='last_used', reverse=true) %}
+        {% set items = utilises + autres %}
+        {% for i in items %} {
+          "type": "custom:mushroom-template-card",
+          "entity": "sensor.stock_filament",
+          "primary": "{{ i.name or i.label }}",
+          "secondary": "{% if i.tracked %}{{ i.stock_g | round(0) | int }} g{% else %}⚠️ a saisir{% endif %}",
+          "icon": "mdi:spool",
+          "icon_color": "{% if i.color %}#{{ i.color }}{% else %}grey{% endif %}",
+          "picture": "{% if i.color %}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='23' fill='%23{{ i.color }}'/%3E%3Ccircle cx='24' cy='24' r='23' fill='none' stroke='gray' stroke-opacity='.5' stroke-width='1.5'/%3E%3Ccircle cx='24' cy='24' r='23' fill='none' stroke='white' stroke-opacity='.4' stroke-width='2'/%3E%3Ccircle cx='24' cy='24' r='8' fill='black' fill-opacity='.45'/%3E%3Ccircle cx='24' cy='24' r='8' fill='none' stroke='white' stroke-opacity='.35' stroke-width='1.5'/%3E%3C/svg%3E{% endif %}",
+          "badge_icon": "{% if selection == i.key %}mdi:check-circle{% endif %}",
+          "badge_color": "green",
+          "tap_action": {
+            "action": "perform-action",
+            "perform_action": "input_text.set_value",
+            "target": { "entity_id": "input_text.stock_filament_selection" },
+            "data": { "value": "{{ i.key }}" }
+          }
+        }{% if not loop.last %},{% endif %} {% endfor %}
+  - type: grid
+    columns: 1
+    cards:
+      - type: heading
+        heading: Ajuster la selection
+        heading_style: subtitle
+        icon: mdi:tune
+      - type: custom:mushroom-template-card
+        primary: Filament selectionne
+        secondary: >-
+          {% set sel = states('input_text.stock_filament_selection') %}
+          {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
+          {% set hit = items | selectattr('key', 'eq', sel) | list %}
+          {{ hit[0].label if hit | length == 1 else 'Aucun (cliquer une pastille)' }}
+        icon: mdi:cursor-default-click
+        icon_color: >-
+          {% set sel = states('input_text.stock_filament_selection') %}
+          {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
+          {% set hit = items | selectattr('key', 'eq', sel) | list %}
+          {% if hit | length == 1 and hit[0].color %}#{{ hit[0].color }}{% else %}grey{% endif %}
+      - type: custom:mushroom-number-card
+        entity: input_number.stock_filament_grammes
         name: Grammes
-      - entity: script.stock_filament_fixer_le_stock
-        name: Fixer le stock à cette valeur (pesée)
-      - entity: script.stock_filament_ajouter_au_stock
-        name: Ajouter cette quantité (achat)
-column_span: 2
-
+        icon: mdi:weight-gram
+        display_mode: slider
+      - type: custom:mushroom-entity-card
+        entity: input_number.stock_filament_seuil_alerte
+        name: Seuil d'alerte (0 = desactive)
+        icon: mdi:bell-alert
+      - type: grid
+        columns: 2
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Fixer (pesee)
+            icon: mdi:scale
+            icon_color: blue
+            tap_action:
+              action: perform-action
+              perform_action: script.stock_filament_fixer_le_stock
+          - type: custom:mushroom-template-card
+            primary: Ajouter (achat)
+            icon: mdi:plus-box
+            icon_color: green
+            tap_action:
+              action: perform-action
+              perform_action: script.stock_filament_ajouter_au_stock
