@@ -56,6 +56,8 @@ input_text:
     max: 100
 
 # Filtre matiere pour la grille de pastilles (option "Tous" = pas de filtre).
+# Les autres options font un match de sous-chaine sur le libelle du filament
+# (ex. "PLA" matche "eSUN PLA-Basic"), pas sur le type technique.
 input_select:
   stock_filament_filtre_matiere:
     name: "Stock filament - Filtre matiere"
@@ -67,7 +69,6 @@ input_select:
       - "ABS"
       - "ASA"
       - "TPU"
-      - "Autre"
 
 # Masque les bobines dont le stock est a 0 g ou negatif (bobines vides).
 input_boolean:

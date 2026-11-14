@@ -12,6 +12,7 @@ La chaîne imprimante → SpoolmanSync (sur un NAS) → Home Assistant → Spool
 ## Fonctionnement
 - **Un compteur en grammes par référence de filament**, pas par bobine physique. La clé est le code matière lu sur la puce (attribut `rfid`) plus la couleur (`color_hex`). Pour une bobine sans puce, la clé se compose du matériau, du nom et de la couleur saisis sur l'écran de l'imprimante.
 - **À chaque changement de slot et en fin d'impression**, l'automation relève la longueur de filament consommée et appelle un petit script Python (`stock_filament.py`, bibliothèque standard uniquement). Le script la convertit en grammes (filament 1,75 mm, densité par matériau ; ordre de grandeur : 1 m de PLA ≈ 3 g) et la retire du compteur.
+- **Fin d'impression couverte :** `completed` (terminée), `idle` (au repos), `stopped` (annulée) et `error` (plantée). Le dernier delta est donc débité même en cas d'annulation ou de plantage. `paused` est géré indirectement : le débit se fait au prochain `stopped`, `error`, `completed` ou `idle`.
 - **Calcul par delta, pas par utility_meter.** Le capteur `used_material_length` est cumulatif sur une impression. L'automation stocke une référence (`input_number.k2pro_creality_last_used_length`) et ne débite que la différence. Au démarrage d'une impression, la référence est remise à 0.
 - Cette automation réutilise la logique de suivi (changement de slot, fin d'impression, imprimante hors ligne) et le capteur `Active Tray` généré à l'origine pour SpoolmanSync. C'est pourquoi les entités gardent leur préfixe `spoolmansync_*` : elles correspondent à la configuration réellement testée. **Seul le capteur `Active Tray` est requis** ; le capteur `Filament Usage` et l'`utility_meter` sont spécifiques à l'option A et ne doivent pas être installés.
 - **Données :** `/config/stock/stock_filament.json`, avec une copie `.bak` du dernier état valide avant chaque écriture. Chaque opération est aussi journalisée dans `stock_filament_log.csv` (séparateur `;`, virgule décimale, ouvrable dans Excel).
@@ -49,6 +50,7 @@ Une référence n'apparaît qu'à sa première consommation, avec un stock à 0 
 - **La grille de pastilles reste vide :** aucune consommation n'a encore été enregistrée, ou le script n'est pas à jour (mets-le à jour avant l'automation).
 - **Les boutons *Fixer* / *Ajouter* ne font rien :** aucune pastille n'est sélectionnée. Clique d'abord une pastille (badge vert), puis saisis le poids et appuie sur le bouton. Vérifie aussi l'identifiant des scripts créés via l'interface (Paramètres > Scripts) : les fichiers fournis utilisent `script.stock_filament_fixer_le_stock` et `script.stock_filament_ajouter_au_stock`.
 - **L'alerte de stock bas ne se déclenche pas :** vérifie que le seuil (`input_number.stock_filament_seuil_alerte`) est supérieur à 0, et que le filament a bien un stock saisi (`tracked: true`). Le seuil s'applique aux références dont le stock a déjà été pesé.
+- **Le débit ne se fait pas après une annulation ou un plantage :** vérifie que ton `automations_extrait.yaml` est bien à jour (le déclencheur `print_end` doit inclure `stopped` et `error`). Avec l'ancienne version, l'impression annulée pouvait ne jamais être débitée.
 
 ## Limites
 - Le suivi est **par référence, pas par bobine** : on sait combien on en a en tout, pas quelle bobine est la plus vide.
@@ -56,6 +58,7 @@ Une référence n'apparaît qu'à sa première consommation, avec un stock à 0 
 - Une bobine sans puce sur le support externe est identifiée par son matériau, son nom et sa couleur saisis à l'écran. Si tu les modifies d'une fois sur l'autre, cela crée une nouvelle référence.
 - Le JSON inline généré par `auto-entities` peut casser si un nom de filament contient une apostrophe ou un guillemet. Évite ces caractères dans les noms de bobines.
 - L'alerte de stock bas utilise des notifications persistantes. Pour recevoir aussi une notification sur ton téléphone, décommente le bloc `notify.mobile_app_*` dans `automations_extrait.yaml`.
+- Une impression **mise en pause** n'est pas débitée au moment de la pause, mais au prochain `stopped`, `error`, `completed` ou `idle`. Le débit est donc correct, mais peut apparaître en une seule fois à la reprise.
 
 ## Fichiers
 | Fichier | Rôle |

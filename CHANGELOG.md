@@ -8,6 +8,21 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), num
 
 _Rien pour le moment. / Nothing yet._
 
+
+## [1.1.1] - 2026-11-14
+
+### Français
+
+**Corrigé**
+- **Option B, débit en fin d'impression** : le déclencheur `print_end` couvre désormais `stopped` (annulation) et `error` (plantage), en plus de `completed` et `idle`. Le dernier delta est donc bien débité même si l'impression ne va pas au bout. La condition `from_state` exclut `off`, `stopped` et `error` pour éviter les débits fantômes au démarrage ou après un arrêt suivi d'une erreur.
+- **Option B, filtre « Autre » retiré** : l'option « Autre » de `input_select.stock_filament_filtre_matiere` ne correspondait à aucun filament (le filtre fait un match de sous-chaîne sur le libellé, pas sur le type technique) et vidait la grille. Les options restantes (PLA, PETG, ABS, ASA, TPU) fonctionnent comme prévu.
+
+### English
+
+**Fixed**
+- **Option B, debit at end of print**: the `print_end` trigger now covers `stopped` (cancel) and `error` (crash), in addition to `completed` and `idle`. The last delta is therefore properly debited even if the print does not complete. The `from_state` condition excludes `off`, `stopped` and `error` to avoid phantom debits on startup or after a stop followed by an error.
+- **Option B, "Autre" filter removed**: the "Autre" option of `input_select.stock_filament_filtre_matiere` matched no filament (the filter uses a substring match on the label, not on the technical type) and emptied the grid. The remaining options (PLA, PETG, ABS, ASA, TPU) work as expected.
+
 ## [1.1.0] - 2026-11-14
 
 ### Français
