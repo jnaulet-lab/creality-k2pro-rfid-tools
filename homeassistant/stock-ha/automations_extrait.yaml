@@ -30,6 +30,16 @@
       for: "00:02:00"
       id: offline
       trigger: state
+  # On ne remet la reference a 0 que sur une VRAIE nouvelle impression
+  # (depuis idle, completed, off, etc.). Une reprise apres pause ou erreur
+  # ne doit pas remettre a 0, sinon le delta cumule pendant la pause est
+  # re-debite une seconde fois.
+  conditions:
+    - condition: template
+      value_template: |-
+        {{ trigger.id != 'print_start'
+           or (trigger.from_state is not none
+               and trigger.from_state.state not in ['paused', 'error', 'stopped', 'self-testing', 'unavailable', 'unknown']) }}
   variables:
     last_length: "{{ states('input_number.k2pro_creality_last_used_length') | float(0) }}"
     current_length: "{{ states('sensor.k2pro_creality_used_material_length') | float(0) }}"
@@ -164,11 +174,14 @@
                       STOCK PRINT END (Creality, skipped) | Slot {{ tray_composite }}
                       | Delta {{ delta_cm }}cm | Raison: pas de delta ou slot inconnu
                     level: info
+            # Conserve la reference au lieu de la remettre a 0 : permet une
+            # reprise ulterieure (impression relancee, changement de bobine
+            # pendant un arret, etc.) sans re-debiter le delta deja consomme.
             - action: input_number.set_value
               target:
                 entity_id: input_number.k2pro_creality_last_used_length
               data:
-                value: 0
+                value: "{{ current_length }}"
         - conditions:
             - condition: template
               value_template: "{{ trigger.id == 'offline' }}"
@@ -200,11 +213,13 @@
                       STOCK OFFLINE FLUSH (Creality, skipped) | Slot {{ tray_composite }}
                       | Delta {{ delta_cm }}cm
                     level: info
+            # Idem : on conserve la reference pour ne pas fausser un
+            # eventuel redemarrage de l'imprimante.
             - action: input_number.set_value
               target:
                 entity_id: input_number.k2pro_creality_last_used_length
               data:
-                value: 0
+                value: "{{ current_length }}"
   mode: single
 
 - id: stock_filament_alerte_stock_bas

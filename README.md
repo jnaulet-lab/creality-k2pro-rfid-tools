@@ -25,6 +25,33 @@ Make **any third-party spool** (eSun, Sunlu, Extrudr...) fully compatible with t
 ### Why the printer catalog must be edited
 By default, the K2 Pro does not recognize third-party RFID tags and lists every non-Creality spool as **Generic**. The CFS identifies a filament through an ID stored on the tag, looked up in the printer's own catalog. To get your brands (eSun, Sunlu...) in the menu and on the tags, you add them to that catalog.
 
+# 🧵 Creality K2 Pro / CFS: custom RFID for any spool (+ optional Home Assistant stock tracking)
+
+[Version française](README.fr.md)
+
+Make **any third-party spool** (eSun, Sunlu, Extrudr...) fully compatible with the **CFS (Creality Filament System)** of the K2 Pro using RFID, with your filaments listed **by brand** in the printer menu. As an **optional bonus**, follow your filament stock with Home Assistant, either with a stock counter alone or through Spoolman.
+
+> **Disclaimer.** Community project, not affiliated with Creality. The RFID part requires **root access** to the printer and edits an internal file: it may void your warranty, and a mistake can break your filament menu. Always back up the original file first. Use at your own risk.
+
+| | What it does | Needs |
+|---|---|---|
+| **Part 1: RFID tags** (main guide) | Third-party spools recognized by the CFS, grouped by brand | Root access, NFC phone, RFID tags |
+| **Part 2: Home Assistant** (optional) | Follows your filament stock: option A syncs Spoolman, option B keeps a stock counter in Home Assistant alone | Home Assistant (and Spoolman for option A). **No root.** |
+
+---
+
+## Part 1: RFID tags for any spool
+
+### What you need
+- **Printer:** Creality K2 Pro with CFS, **root access (SSH)**
+- **Slicer:** Creality Print
+- **Tags:** M1 Classic 1K NFC tags (13.56 MHz, 4-byte UID)
+- **Phone:** Android with NFC, app **CFS RFID** ([Google Play](https://play.google.com/store/apps/details?id=dngsoftware.spoolid))
+- **Computer:** to connect over SSH and copy files (SCP/SFTP)
+
+### Why the printer catalog must be edited
+By default, the K2 Pro does not recognize third-party RFID tags and lists every non-Creality spool as **Generic**. The CFS identifies a filament through an ID stored on the tag, looked up in the printer's own catalog. To get your brands (eSun, Sunlu...) in the menu and on the tags, you add them to that catalog.
+
 ### Step 1: create and export your filaments
 1. In Creality Print, create your custom filaments (brand, type, temperatures...).
 2. Export your filament presets (one `.json` per filament).
@@ -108,6 +135,7 @@ python add_filament.py material_database.json eSun_PLA-Basic.json Sunlu_PETG-Bas
 python add_filament.py material_database.json my_preset.json --dry-run
 ```
 
+
 For each exported preset, the script:
 1. finds the matching generic entry through the preset's `inherits` field;
 2. copies it, then sets the `id` (next free id from `90001`), the brand (`filament_vendor`), a readable name, the `rank`, the min/max temperatures and the density;
@@ -141,7 +169,7 @@ Skip this part if you do not use Home Assistant. It needs **no root access** and
 |---|---|---|
 | Principle | printer → SpoolmanSync → Home Assistant → Spoolman | printer → Home Assistant |
 | What you need | Home Assistant, Spoolman and SpoolmanSync (a server such as a NAS) | Home Assistant only, plus a small Python script in `/config` |
-| What it gives you | Spoolman's spool database, with the matching spool assigned automatically to each CFS slot | A remaining-stock counter in grams per filament, a dashboard table, two buttons (set / add) and a low-stock alert |
+| What it gives you | Spoolman's spool database, with the matching spool assigned automatically to each CFS slot | A remaining-stock counter in grams per filament, a dashboard, two buttons (set / add) and a low-stock alert |
 | Tracking level | Per physical spool | Per filament reference (material code + color), not per spool |
 | Complexity | Four components, sensitive to updates | One script and one JSON file |
 | Main limit | Cannot tell which of several identical spools is in use (heuristic: the already started one with the least filament left) | Does not tell which spool is emptiest; accuracy depends on the length the printer reports, so weigh a spool now and then |

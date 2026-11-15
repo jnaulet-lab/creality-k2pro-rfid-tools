@@ -54,6 +54,7 @@ sections:
       columns: 2
       square: false
     card_param: cards
+    show_empty: false
     filter:
       template: >-
         {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
@@ -75,7 +76,7 @@ sections:
         {% set autres = items | rejectattr('last_used', 'defined') | list %}
         {% set utilises = utilises | sort(attribute='last_used', reverse=true) %}
         {% set items = utilises + autres %}
-        {% for i in items %} {
+        [{% for i in items %} {
           "type": "custom:mushroom-template-card",
           "entity": "sensor.stock_filament",
           "primary": "{{ i.name or i.label }}",
@@ -91,7 +92,7 @@ sections:
             "target": { "entity_id": "input_text.stock_filament_selection" },
             "data": { "value": "{{ i.key }}" }
           }
-        }{% if not loop.last %},{% endif %} {% endfor %}
+        }{% if not loop.last %},{% endif %} {% endfor %}]
   - type: grid
     columns: 1
     cards:

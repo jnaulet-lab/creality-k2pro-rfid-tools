@@ -8,6 +8,31 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), num
 
 _Rien pour le moment. / Nothing yet._
 
+## [1.1.2] - 2026-11-15
+
+### Français
+
+**Corrigé**
+- **Option B, débit en fin d'impression** : le déclencheur `print_end` couvre désormais `stopped` (annulation) et `error` (plantage), en plus de `completed` et `idle`. Le dernier delta est débité même si l'impression ne va pas au bout. La condition `from_state` exclut `off`, `stopped` et `error` pour éviter les débits fantômes au démarrage ou après un arrêt suivi d'une erreur.
+- **Option B, reprise après pause ou erreur** : un `print_start` consécutif à `paused`, `error`, `stopped`, `self-testing`, `unavailable` ou `unknown` ne remet plus la référence de longueur à 0 (nouvelle condition globale sur l'automation). Le compteur `used_material_length` continuant de monter pendant la pause, l'ancien comportement provoquait un double débit à la reprise.
+- **Option B, conservation de la référence en fin d'impression et hors ligne** : dans les branches `print_end` et `offline`, la référence `input_number.k2pro_creality_last_used_length` est désormais fixée à `current_length` au lieu de 0. Une impression relancée après un arrêt (changement de bobine, redémarrage) reprend sans re-débiter le delta déjà consommé.
+- **Option B, filtre « Autre » retiré** : l'option « Autre » de `input_select.stock_filament_filtre_matiere` ne correspondait à aucun filament (le filtre fait un match de sous-chaîne sur le libellé) et vidait la grille. Les options restantes (PLA, PETG, ABS, ASA, TPU) fonctionnent comme prévu.
+- **Option B, grille `auto-entities`** : le template encadre désormais la liste JSON par `[` et `]`. Sans ces crochets, une grille filtrée à un seul élément n'était pas reconnue comme une liste par `auto-entities` et la carte ne s'affichait pas. Ajout de `show_empty: false` pour éviter un espace vide quand aucun filament n'est visible.
+
+**Documentation**
+- **README (FR + EN)** : mention des événements `stopped` et `error` couverts, du comportement de reprise après pause, et de la conservation de la référence en fin d'impression.
+
+### English
+
+**Fixed**
+- **Option B, debit at end of print**: the `print_end` trigger now covers `stopped` (cancel) and `error` (crash), in addition to `completed` and `idle`. The last delta is debited even if the print does not complete. The `from_state` condition excludes `off`, `stopped` and `error` to avoid phantom debits on startup or after a stop followed by an error.
+- **Option B, resume after pause or error**: a `print_start` following `paused`, `error`, `stopped`, `self-testing`, `unavailable` or `unknown` no longer resets the length reference to 0 (new global condition on the automation). Because `used_material_length` keeps rising during the pause, the previous behaviour caused a double debit on resume.
+- **Option B, reference kept at end of print and offline**: in the `print_end` and `offline` branches, the reference `input_number.k2pro_creality_last_used_length` is now set to `current_length` instead of 0. A print restarted after a stop (spool change, reboot) resumes without re-debiting the delta already consumed.
+- **Option B, "Autre" filter removed**: the "Autre" option of `input_select.stock_filament_filtre_matiere` matched no filament (the filter uses a substring match on the label) and emptied the grid. The remaining options (PLA, PETG, ABS, ASA, TPU) work as expected.
+- **Option B, `auto-entities` grid**: the template now wraps the JSON list in `[` and `]`. Without these brackets, a grid filtered down to a single element was not recognized as a list by `auto-entities` and the card did not render. Added `show_empty: false` to avoid an empty gap when no filament is visible.
+
+**Documentation**
+- **README (FR + EN)**: mention of the `stopped` and `error` events covered, the resume behaviour after a pause, and the reference being kept at end of print.
 
 ## [1.1.1] - 2026-11-14
 
