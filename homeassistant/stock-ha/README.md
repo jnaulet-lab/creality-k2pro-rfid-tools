@@ -27,6 +27,7 @@ The chain printer → SpoolmanSync (on a NAS) → Home Assistant → Spoolman ca
 - **Search and filters:** text search field, material filter (PLA, PETG…), and a toggle to hide empty spools.
 - **Selection and adjustment:** click a tile to select it (green badge), then enter the weight and press *Fixer (pesée)* or *Ajouter (achat)*. No technical input needed.
 - **Low-stock threshold:** a dedicated field (`input_number.stock_filament_seuil_alerte`) triggers a persistent notification when a reference drops below it. 0 = alerts disabled.
+- **Deletion:** a dedicated button deletes the selected spool, with native Home Assistant confirmation. The debit history stays in the CSV; only the reference disappears from the grid.
 - The helpers (selection, search, filter, grams, threshold) are declared in `configuration.yaml`, one automation handles the alert and two scripts run the buttons.
 - The dashboard texts are in French; edit them freely in the YAML.
 
@@ -45,6 +46,8 @@ Home Assistant OS 18.5 and Creality WebSocket Integration ([ha_creality_ws](http
 
 ## Usage
 A reference only appears at its first consumption, with a stock of 0 that goes negative and the note "⚠️ à saisir". Click the tile, enter the real weight of the spool and press *Fixer (pesée)*. After that, every print lowers it automatically. Press *Ajouter (achat)* after buying a new spool.
+
+To remove an unnecessary reference (an empty spool you will not replace, a duplicate created by mistake), click its tile and then the **Delete the selected spool** button. A confirmation is requested: the action is irreversible on the JSON side, but the debit history stays in the CSV.
 
 > **No initial value on the "Grammes" field.** It starts at 0 and nothing is validated until you enter a weight. This is intentional: it avoids suggesting a fictitious 1000 g stock before the first weighing.
 
@@ -70,7 +73,7 @@ A reference only appears at its first consumption, with a stock of 0 that goes n
 |---|---|
 | `configuration_extrait.yaml` | Helpers, `Active Tray` sensor, `shell_command`, `command_line` |
 | `automations_extrait.yaml` | Stock debit (slot change, end of print, printer offline) and low-stock alert |
-| `scripts_extrait.yaml` | *Fixer le stock* and *Ajouter au stock* buttons |
+| `scripts_extrait.yaml` | *Fixer le stock*, *Ajouter au stock* and *Delete the spool* buttons |
 | `dashboard_extrait.yaml` | `Filaments` view with the tile grid and the adjustment card |
 | `stock/stock_filament.py` | Counter script (`debit`, `set`, `add`, `remove`, `dump`) |
 

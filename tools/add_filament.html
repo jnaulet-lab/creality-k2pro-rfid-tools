@@ -2,6 +2,7 @@
 <!--
   Copyright (c) 2026 jnaulet-lab
   MIT License - see LICENSE and LICENSES/MIT.txt in the repository.
+  Version 1.1
 -->
 <html lang="en">
 <head>
@@ -318,6 +319,7 @@ const I18N = {
     btnDownload: "Télécharger le nouveau material_database.json",
     afterDownload: "Remplace ensuite le fichier sur l'imprimante (en gardant la sauvegarde de l'original), puis suis les étapes suivantes du guide.",
     remove: "Retirer",
+    presetUpdated: "mis à jour",
     loadedDb: (n, v) => n + " entrées, version " + v,
     tagAdd: "Ajout", tagReplace: "Remplacé", tagSkip: "Ignoré", tagWarn: "Attention", tagError: "Erreur",
     evAdd: e => "id " + e.id + " | " + e.brand + " | " + e.name + " | " + e.material + " | " + e.min + "-" + e.max + " °C",
@@ -330,7 +332,7 @@ const I18N = {
     errBadJson: f => "Le fichier « " + f + " » n'est pas un JSON valide.",
     errNotDb: f => "Le fichier « " + f + " » ne ressemble pas à un catalogue (result.list introuvable).",
     errPreset: (f, msg) => "Préréglage « " + f + " » : " + msg + ". Rien n'a été généré.",
-    footer: "Outil du projet RFID pour Creality K2 Pro / CFS. Utilisation à tes risques, garde toujours une sauvegarde."
+    footer: "Outil du projet RFID pour Creality K2 Pro / CFS. Utilisation à tes risques, garde toujours une sauvegarde. - Version 1.1"
   },
   en: {
     title: "Add filaments to the K2 Pro catalog",
@@ -355,6 +357,7 @@ const I18N = {
     btnDownload: "Download the new material_database.json",
     afterDownload: "Then replace the file on the printer (keeping the backup of the original) and follow the next steps of the guide.",
     remove: "Remove",
+    presetUpdated: "updated",
     loadedDb: (n, v) => n + " entries, version " + v,
     tagAdd: "Added", tagReplace: "Replaced", tagSkip: "Skipped", tagWarn: "Warning", tagError: "Error",
     evAdd: e => "id " + e.id + " | " + e.brand + " | " + e.name + " | " + e.material + " | " + e.min + "-" + e.max + " °C",
@@ -367,7 +370,7 @@ const I18N = {
     errBadJson: f => "The file '" + f + "' is not valid JSON.",
     errNotDb: f => "The file '" + f + "' does not look like a catalog (result.list not found).",
     errPreset: (f, msg) => "Preset '" + f + "': " + msg + ". Nothing was generated.",
-    footer: "Tool from the RFID project for Creality K2 Pro / CFS. Use at your own risk, always keep a backup."
+    footer: "Tool from the RFID project for Creality K2 Pro / CFS. Use at your own risk, always keep a backup. - Version 1.1"
   }
 };
 
@@ -437,7 +440,7 @@ function renderLoaded() {
   const pBox = $("presets-loaded");
   pBox.textContent = "";
   state.presets.forEach((p, i) => {
-    pBox.appendChild(fileLine("✔ " + p.name, () => { state.presets.splice(i, 1); resetResult(); renderLoaded(); }));
+    pBox.appendChild(fileLine("✔ " + p.name + (p.updated ? " (" + t().presetUpdated + ")" : ""), () => { state.presets.splice(i, 1); resetResult(); renderLoaded(); }));
   });
   pBox.hidden = state.presets.length === 0;
 
@@ -468,6 +471,7 @@ function showMessage(text, cls) {
 }
 
 async function readFiles(fileList, kind) {
+  if (kind === "presets") state.presets.forEach(p => { p.updated = false; });
   for (const file of Array.from(fileList)) {
     let text, json;
     try {
@@ -484,7 +488,15 @@ async function readFiles(fileList, kind) {
       }
       state.db = { name: file.name, text, data: json };
     } else {
-      if (!state.presets.some(p => p.name === file.name)) state.presets.push({ name: file.name, json });
+      const known = state.presets.findIndex(p => p.name === file.name);
+      if (known === -1) {
+        state.presets.push({ name: file.name, json, text });
+      } else if (state.presets[known].text !== text) {
+        // Same file name, different content (preset re-exported after a change):
+        // replace it in place, so the order (and therefore the ids) stay the same.
+        state.presets[known] = { name: file.name, json, text, updated: true };
+      }
+      // Same name and same content: nothing to do.
     }
     resetResult();
   }

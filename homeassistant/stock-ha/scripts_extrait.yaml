@@ -1,4 +1,4 @@
-# scripts.yaml - extrait : boutons 'Fixer le stock' et 'Ajouter au stock'
+# scripts.yaml - extrait : boutons 'Fixer le stock', 'Ajouter au stock' et suppression
 # Ils lisent la CLE stockee dans input_text.stock_filament_selection (remplie par
 # la grille de pastilles du dashboard) et le champ input_number.stock_filament_grammes.
 # Les scripts crees via l'interface prennent un identifiant derive de leur nom : adaptez-le
@@ -38,6 +38,31 @@ stock_filament_ajouter_au_stock:
       data:
         query: "{{ key }}"
         grams: "{{ states('input_number.stock_filament_grammes') | float(0) }}"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.stock_filament
+# Supprime la reference selectionnee (par sa cle interne). La confirmation
+# est geree cote carte (dashboard_extrait.yaml) pour eviter un double dialogue.
+stock_filament_supprimer_la_bobine:
+  alias: Stock filament - Supprimer la bobine
+  icon: mdi:trash-can-outline
+  sequence:
+    - variables:
+        sel: "{{ states('input_text.stock_filament_selection') }}"
+        key: >-
+          {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
+          {% set hit = items | selectattr('key', 'eq', sel) | list %}
+          {{ hit[0].key if hit | length == 1 else '' }}
+    - condition: template
+      value_template: "{{ key != '' }}"
+    - action: shell_command.stock_filament_remove
+      data:
+        query: "{{ key }}"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.stock_filament_selection
+      data:
+        value: ""
     - action: homeassistant.update_entity
       target:
         entity_id: sensor.stock_filament

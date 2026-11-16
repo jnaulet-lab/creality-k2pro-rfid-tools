@@ -139,3 +139,21 @@ sections:
             tap_action:
               action: perform-action
               perform_action: script.stock_filament_ajouter_au_stock
+      # --- Suppression de la bobine selectionnee (confirmation native HA) ---
+      - type: custom:mushroom-template-card
+        primary: Supprimer la bobine selectionnee
+        secondary: >-
+          {% set sel = states('input_text.stock_filament_selection') %}
+          {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
+          {% set hit = items | selectattr('key', 'eq', sel) | list %}
+          {{ hit[0].label if hit | length == 1 else 'Aucune bobine selectionnee' }}
+        icon: mdi:trash-can-outline
+        icon_color: red
+        tap_action:
+          action: perform-action
+          perform_action: script.stock_filament_supprimer_la_bobine
+          confirmation:
+            text: >-
+              Supprimer definitivement cette reference du stock ?
+              L'historique reste dans le CSV, mais la reference disparaitra
+              de la grille. Cette action est irreversible.

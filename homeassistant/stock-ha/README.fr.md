@@ -27,6 +27,7 @@ La chaîne imprimante → SpoolmanSync (sur un NAS) → Home Assistant → Spool
 - **Recherche et filtres :** champ de recherche texte, filtre par matière (PLA, PETG…) et masquage des bobines vides.
 - **Sélection et ajustement :** on clique une pastille pour la sélectionner (badge vert), puis on saisit le poids et on appuie sur *Fixer (pesée)* ou *Ajouter (achat)*. Aucune saisie technique.
 - **Seuil d'alerte :** un champ dédié (`input_number.stock_filament_seuil_alerte`) déclenche une notification persistante quand une référence passe sous le seuil. 0 = alertes désactivées.
+- **Suppression :** un bouton dédié supprime la bobine sélectionnée, avec confirmation native Home Assistant. L'historique des débits reste dans le CSV, seule la référence disparaît de la grille.
 - Les assistants (sélection, recherche, filtre, grammes, seuil) sont déclarés dans `configuration.yaml`, une automation gère l'alerte et deux scripts exécutent les boutons.
 
 **À propos de l'affichage de la couleur.** Une pastille en HTML/CSS (`<span style="...">`) ne s'affichait pas dans la carte Markdown, vraisemblablement parce que Home Assistant filtre les styles inline. La solution est la même que celle des cartes Mushroom des slots du CFS : une petite image SVG intégrée (`data:image/svg+xml`) colorée avec le code couleur. La pastille emoji n'est plus utilisée dans le dashboard, mais reste disponible dans les attributs `dot` / `option` de `sensor.stock_filament` pour d'autres usages.
@@ -44,6 +45,8 @@ Home Assistant OS 18.5 et Creality WebSocket Integration ([ha_creality_ws](https
 
 ## Utilisation
 Une référence n'apparaît qu'à sa première consommation, avec un stock à 0 qui passe en négatif et la mention « ⚠️ à saisir ». Clique la pastille, saisis le poids réel de la bobine et appuie sur *Fixer (pesée)*. Ensuite, chaque impression le fait baisser automatiquement. Appuie sur *Ajouter (achat)* après l'achat d'une nouvelle bobine.
+
+Pour retirer une référence devenue inutile (bobine vide que vous ne remplacerez pas, doublon créé par erreur), cliquez sa pastille puis le bouton **Supprimer la bobine sélectionnée**. Une confirmation vous est demandée : l'action est irréversible côté JSON, mais l'historique des débits reste dans le CSV.
 
 > **Pas de valeur initiale sur le champ « Grammes ».** Il démarre à 0 et rien n'est validé tant que tu n'as pas saisi un poids. C'est voulu : cela évite de faire croire à un stock de 1000 g fictif avant la première pesée.
 
@@ -69,7 +72,7 @@ Une référence n'apparaît qu'à sa première consommation, avec un stock à 0 
 |---|---|
 | `configuration_extrait.yaml` | Assistants, capteur `Active Tray`, `shell_command`, `command_line` |
 | `automations_extrait.yaml` | Débit du stock (changement de slot, fin d'impression, imprimante hors ligne) et alerte de stock bas |
-| `scripts_extrait.yaml` | Boutons *Fixer le stock* et *Ajouter au stock* |
+| `scripts_extrait.yaml` | Boutons *Fixer le stock*, *Ajouter au stock* et *Supprimer la bobine* |
 | `dashboard_extrait.yaml` | Vue `Filaments` avec la grille de pastilles et la carte d'ajustement |
 | `stock/stock_filament.py` | Script du compteur (`debit`, `set`, `add`, `remove`, `dump`) |
 

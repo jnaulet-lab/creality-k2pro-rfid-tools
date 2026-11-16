@@ -15,7 +15,7 @@
     - entity_id: sensor.spoolmansync_k2pro_creality_active_tray
       id: tray
       not_from: [unavailable, unknown]
-      not_to: [unavailable, unknown]
+      not_to: [unavailable, unknown, ""]
       trigger: state
     - entity_id: sensor.k2pro_creality_print_status
       to: [completed, idle, stopped, error]
@@ -55,11 +55,17 @@
         {{ trigger.to_state.state | int(-1) }}
       {% else %} -1 {% endif %}
     helper_tray: "{{ states('input_number.spoolmansync_k2pro_creality_last_tray') | int(-1) }}"
-    tray_composite: >-
+    # helper_tray est recalcule LOCALEMENT pour ne pas dependre de la
+    # resolution des variables entre elles (evite le warning 'helper_tray
+    # is undefined' selon l'ordre d'evaluation de Jinja).
+    tray_composite: |-
+      {% set helper_tray = states('input_number.spoolmansync_k2pro_creality_last_tray') | int(-1) %}
       {% if trigger.id == 'print_end' or trigger.id == 'offline' %}
         {{ helper_tray }}
+      {% elif old_tray >= 0 %}
+        {{ old_tray }}
       {% else %}
-        {{ old_tray if old_tray >= 0 else helper_tray }}
+        {{ helper_tray }}
       {% endif %}
     tray_sensor: >-
       {% if tray_composite == 0 %}sensor.k2pro_creality_cfs_external_filament{% endif %}

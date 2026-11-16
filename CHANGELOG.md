@@ -8,6 +8,32 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), num
 
 _Rien pour le moment. / Nothing yet._
 
+## [1.1.3] - 2026-11-16
+
+### Français
+
+**Corrigé**
+- **Option B, `helper_tray` dans `tray_composite`** : le template utilise désormais un `{% set helper_tray = ... %}` local au lieu de dépendre de la variable `helper_tray` définie au niveau `variables:`. Cela supprime le warning `'helper_tray' is undefined` qui pouvait casser le débit quand Jinja évaluait `tray_composite` avant `helper_tray`.
+- **Option B, déclencheur `tray`** : la liste `not_to` inclut désormais aussi `""` en plus de `unavailable` et `unknown`, pour ignorer les transitions vers un état vide.
+
+**Ajouté**
+- **Option B, bouton « Supprimer la bobine sélectionnée »** dans la vue Filaments : une carte Mushroom avec confirmation native Home Assistant. Le bouton appelle le nouveau script `stock_filament_supprimer_la_bobine`, qui supprime la référence par sa clé interne puis vide `input_text.stock_filament_selection`. L'historique reste dans le CSV.
+
+**Documentation**
+- **README (FR + EN)** : mention du bouton de suppression dans la section « Utilisation », et du remplacement en place des préréglages redéposés dans `add_filament.html`.
+
+### English
+
+**Fixed**
+- **Option B, `helper_tray` in `tray_composite`**: the template now uses a local `{% set helper_tray = ... %}` instead of relying on the `helper_tray` variable defined at the `variables:` level. This removes the `'helper_tray' is undefined` warning that could break the debit when Jinja evaluated `tray_composite` before `helper_tray`.
+- **Option B, `tray` trigger**: the `not_to` list now also includes `""` in addition to `unavailable` and `unknown`, to ignore transitions to an empty state.
+
+**Added**
+- **Option B, "Delete the selected spool" button** in the Filaments view: a Mushroom card with native Home Assistant confirmation. The button calls the new `stock_filament_supprimer_la_bobine` script, which deletes the reference by its internal key and then clears `input_text.stock_filament_selection`. The history stays in the CSV.
+
+**Documentation**
+- **README (FR + EN)**: mention of the delete button in the "Usage" section, and of the in-place replacement of re-dropped presets in `add_filament.html`.
+
 ## [1.1.2] - 2026-11-15
 
 ### Français
