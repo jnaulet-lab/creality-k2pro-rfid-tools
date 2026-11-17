@@ -8,6 +8,46 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), num
 
 _Rien pour le moment. / Nothing yet._
 
+## [1.1.4] - 2026-11-17
+
+### Français
+
+**Corrigé**
+- **Option B, `delta_cm` robuste à la remise à zéro du compteur** : si `used_material_length` est inférieur à la référence (l'imprimante l'a remis à zéro pour une nouvelle impression), le delta est la valeur courante au lieu d'être forcé à 0. Avant, la consommation du début d'une impression pouvait ne pas être débitée tant que le compteur n'avait pas dépassé l'ancienne référence.
+- **Option B, `print_start` calé sur `current_length`** : la référence `input_number.k2pro_creality_last_used_length` prend la valeur courante du capteur au lieu de 0. Avec 0, un changement de slot survenant avant la remise à zéro du compteur par l'imprimante pouvait débiter une seconde fois toute l'impression précédente. Le message de log est ajusté.
+- **Option B, identification du filament (`automations_extrait.yaml`)** : les variables `material_code`, `material`, `name`, `color` et `vendor` utilisent `or ''` au lieu de `| default('')`. `state_attr()` renvoie `None` (et non une valeur indéfinie) quand un attribut manque, donc `default('')` ne s'appliquait pas : une bobine sans attribut `rfid` pouvait produire une clé du type `None_<couleur>` et une fausse référence dans le stock.
+- **Option B, slot actif des impressions mono-slot** : la branche `print_start` mémorise désormais le slot actif dans `input_number.spoolmansync_k2pro_creality_last_tray`. Auparavant, ce helper n'était mis à jour que lors d'un changement direct de slot : si le capteur `Active Tray` repassait par `unknown` entre deux impressions, un débit de fin d'impression pouvait être imputé à l'ancien slot.
+- **Option B, recherche du dashboard** : la recherche texte et le filtre matière font une correspondance littérale (sous-chaîne, insensible à la casse) au lieu d'une expression régulière. Chercher `PLA+HS` ne trouvait pas « PLA+HS », et une parenthèse seule provoquait une erreur de template.
+- **Option B, « Masquer les vides »** : seules les bobines suivies (`tracked`) dont le stock est inférieur ou égal à 0 sont masquées. Auparavant, les références « ⚠️ à saisir » (stock jamais renseigné, donc négatif) disparaissaient aussi, ce qui empêchait de les initialiser.
+- **Option B, noms de filament dans la grille** : le nom des cartes passe par `tojson`. Un guillemet dans un nom ne casse plus le JSON généré par `auto-entities` (la limite correspondante est retirée du README).
+- **Option B, `stock_filament.py`** : écriture plus sûre (`fsync` avant `os.replace`, pour éviter un fichier vide après une coupure de courant). Quand le JSON est illisible, un débit n'est plus perdu sans trace : une ligne `debit_perdu` est ajoutée au CSV pour pouvoir le rattraper à la main.
+
+**Modifié**
+- **Option B, `stock_filament.py`** : retrait de la fonction `color_dot` et des attributs `dot` et `option` de `sensor.stock_filament` (pastille emoji, inutilisée par le dashboard depuis 1.1.0). Les attributs du capteur sont plus légers.
+- **Option B, `configuration_extrait.yaml`** : suppression de l'`utility_meter` et du capteur `Filament Usage` (héritage SpoolmanSync, non lus par l'option B ; le capteur `Active Tray` n'en dépend pas, contrairement à ce que disait un commentaire). Les installations existantes peuvent les laisser en place ou les supprimer. Commentaire de `stock_filament_masquer_vides` précisé.
+
+**Documentation**
+- **README option B (FR + EN)** : description de la mémorisation du slot actif, de la recherche littérale, des bobines « à saisir » toujours visibles et de la ligne `debit_perdu` ; nouvelles entrées de dépannage ; retrait de la limite sur les guillemets dans les noms ; « trois scripts » au lieu de « deux » ; le bloc `notify.mobile_app_*` à décommenter, absent de `automations_extrait.yaml`, est remplacé par un exemple d'action à ajouter ; paragraphe de suppression passé au tutoiement (FR).
+
+### English
+
+**Fixed**
+- **Option B, `delta_cm` robust to the counter reset**: if `used_material_length` is lower than the reference (the printer reset it for a new print), the delta is the current value instead of being forced to 0. Previously, the consumption at the start of a print could go undebited until the counter exceeded the old reference.
+- **Option B, `print_start` set to `current_length`**: the reference `input_number.k2pro_creality_last_used_length` takes the sensor's current value instead of 0. With 0, a slot change happening before the printer reset the counter could debit the whole previous print a second time. The log message is adjusted.
+- **Option B, filament identification (`automations_extrait.yaml`)**: the `material_code`, `material`, `name`, `color` and `vendor` variables use `or ''` instead of `| default('')`. `state_attr()` returns `None` (not an undefined value) when an attribute is missing, so `default('')` never applied: a spool without an `rfid` attribute could produce a key like `None_<color>` and a bogus reference in the stock.
+- **Option B, active slot for single-slot prints**: the `print_start` branch now stores the active slot in `input_number.spoolmansync_k2pro_creality_last_tray`. Previously this helper was only updated on a direct slot-to-slot change: if the `Active Tray` sensor went through `unknown` between two prints, an end-of-print debit could be charged to the previous slot.
+- **Option B, dashboard search**: the text search and the material filter use a literal (case-insensitive substring) match instead of a regular expression. Searching `PLA+HS` did not find "PLA+HS", and a lone parenthesis caused a template error.
+- **Option B, "Masquer les vides"**: only tracked spools (`tracked`) with a stock lower than or equal to 0 are hidden. Previously, "⚠️ à saisir" references (stock never entered, hence negative) disappeared too, which made it impossible to initialize them.
+- **Option B, filament names in the grid**: the card name goes through `tojson`. A double quote in a name no longer breaks the JSON generated by `auto-entities` (the matching limitation is removed from the README).
+- **Option B, `stock_filament.py`**: safer writes (`fsync` before `os.replace`, to avoid an empty file after a power loss). When the JSON is unreadable, a debit is no longer lost without a trace: a `debit_perdu` row is added to the CSV so it can be caught up by hand.
+
+**Changed**
+- **Option B, `stock_filament.py`**: removed the `color_dot` function and the `dot` and `option` attributes of `sensor.stock_filament` (emoji dot, unused by the dashboard since 1.1.0). The sensor attributes are lighter.
+- **Option B, `configuration_extrait.yaml`**: removed the `utility_meter` and the `Filament Usage` sensor (SpoolmanSync legacy, not read by option B; the `Active Tray` sensor does not depend on them, contrary to what a comment said). Existing installations can keep or remove them. Comment of `stock_filament_masquer_vides` clarified.
+
+**Documentation**
+- **Option B README (FR + EN)**: description of the active-slot memorization, the literal search, the "⚠️ à saisir" spools always visible and the `debit_perdu` row; new troubleshooting entries; removed the limitation about quotes in names; "three scripts" instead of "two"; the `notify.mobile_app_*` block to uncomment, which was absent from `automations_extrait.yaml`, is replaced by an example action to add; delete paragraph switched to informal address (FR).
+
 ## [1.1.3] - 2026-11-16
 
 ### Français

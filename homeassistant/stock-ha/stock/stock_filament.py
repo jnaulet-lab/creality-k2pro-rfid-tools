@@ -13,7 +13,6 @@ Commandes :
   dump                                              affiche tout en JSON
 <recherche> = libelle exact, ou morceau de la cle / du libelle (une seule reference).
 """
-import colorsys
 import csv
 import fcntl
 import json
@@ -53,32 +52,6 @@ def grams_from_length(length_cm, material):
     return length_cm * math.pi * radius_cm ** 2 * density(material)
 
 
-def color_dot(hexc):
-    """Pastille emoji la plus proche d'une couleur hexadecimale (9 categories)."""
-    if not re.fullmatch(r"[0-9a-fA-F]{6}", hexc or ""):
-        return "\u2754"  # ? : couleur inconnue
-    r, g, b = (int(hexc[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
-    h, sat, v = colorsys.rgb_to_hsv(r, g, b)
-    h *= 360
-    if v < 0.20:
-        return "\u26ab"  # noir
-    if sat < 0.15 or (sat < 0.35 and v > 0.75):
-        return "\u26aa" if v >= 0.55 else "\u26ab"  # blanc / gris / pastel
-    if 10 <= h < 45 and v < 0.62:
-        return "\U0001f7e4"  # marron
-    if h < 10 or h >= 345:
-        return "\U0001f534"  # rouge
-    if h < 45:
-        return "\U0001f7e0"  # orange
-    if h < 70:
-        return "\U0001f7e1"  # jaune
-    if h < 165:
-        return "\U0001f7e2"  # vert
-    if h < 255:
-        return "\U0001f535"  # bleu / cyan
-    return "\U0001f7e3"  # violet / rose
-
-
 def split_label(label):
     """'eSUN PLA-Basic #ffffff' -> ('eSUN PLA-Basic', 'ffffff')"""
     m = re.match(r"^(.*?)\s*#([0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?\s*$", label or "")
@@ -111,6 +84,8 @@ def save(data):
     fd, tmp = tempfile.mkstemp(dir=DIR, suffix=".tmp")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
+        f.flush()
+        os.fsync(f.fileno())  # evite un fichier vide en cas de coupure de courant
     os.replace(tmp, DATA)
 
 
@@ -156,6 +131,12 @@ def main(argv):
             if cmd == "dump":  # le capteur affiche -1 au lieu d'echouer
                 print(json.dumps({"count": -1, "total_g": 0, "items": [], "error": str(e)}))
                 return 0
+            if cmd == "debit" and len(argv) >= 6:  # garde une trace de la conso perdue
+                try:
+                    log([now, "debit_perdu", slug(argv[2]), argv[3], argv[4],
+                         fr(float(argv[5])), "", ""])
+                except Exception:
+                    pass
             sys.stderr.write(str(e) + " (aucune modification effectuee)\n")
             return 3
 
@@ -189,9 +170,7 @@ def main(argv):
             items = []
             for k, v in data.items():
                 name, color = split_label(v.get("label", ""))
-                dot = color_dot(color)
-                items.append(dict(key=k, name=name, color=color, dot=dot,
-                                  option="%s %s" % (dot, v.get("label", "")), **v))
+                items.append(dict(key=k, name=name, color=color, **v))
             items.sort(key=lambda i: i.get("label", "").lower())
             print(json.dumps({
                 "count": len(items),

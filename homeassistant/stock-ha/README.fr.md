@@ -4,7 +4,7 @@
 
 Connais ton stock de filament restant avec Home Assistant seul : `imprimante → Home Assistant`, rien d'autre.
 
-> **Choisis A ou B, pas les deux.** Cette option partage des assistants, des capteurs, un compteur et un identifiant d'automation avec l'[option A (Spoolman)](../spoolman/README.fr.md). N'installe que l'une des deux.
+> **Choisis A ou B, pas les deux.** Cette option partage des assistants, le capteur `Active Tray` et un identifiant d'automation avec l'[option A (Spoolman)](../spoolman/README.fr.md). N'installe que l'une des deux.
 
 ## Pourquoi cette option
 La chaîne imprimante → SpoolmanSync (sur un NAS) → Home Assistant → Spoolman peut être complexe et sensible aux mises à jour, et Spoolman ne peut pas savoir laquelle de plusieurs bobines identiques est en service. Si ton besoin réel est de connaître ton stock restant, cette option est plus simple.
@@ -15,7 +15,7 @@ La chaîne imprimante → SpoolmanSync (sur un NAS) → Home Assistant → Spool
 - **Fin d'impression couverte :** `completed` (terminée), `idle` (au repos), `stopped` (annulée) et `error` (plantée). Le dernier delta est donc débité même en cas d'annulation ou de plantage.
 - **Pause et reprise :** une impression mise en pause n'est pas débitée au moment de la pause, mais au prochain `stopped`, `error`, `completed` ou `idle`. À la reprise (passage `paused → printing`), la référence de longueur **n'est pas remise à 0** : le compteur `used_material_length` ayant continué de monter pendant la pause, cela évite un double débit.
 - **Fin d'impression et hors ligne :** dans les branches `print_end` et `offline`, la référence de longueur est conservée (`current_length`) au lieu d'être remise à 0. Une impression relancée après un arrêt (changement de bobine, redémarrage) reprend donc sans re-débiter le delta déjà consommé.
-- **Calcul par delta, pas par utility_meter.** Le capteur `used_material_length` est cumulatif sur une impression. L'automation stocke une référence (`input_number.k2pro_creality_last_used_length`) et ne débite que la différence. Au démarrage d'une impression, la référence est remise à 0.
+- **Calcul par delta, pas par utility_meter.** Le capteur `used_material_length` est cumulatif sur une impression. L'automation stocke une référence (`input_number.k2pro_creality_last_used_length`) et ne débite que la différence. Au démarrage d'une impression, la référence est calée sur la valeur courante du capteur et le slot actif est mémorisé (une impression mono-slot est ainsi débitée sur la bonne bobine). Si le capteur est inférieur à la référence, l'imprimante l'a remis à zéro pour une nouvelle impression : le delta repart alors de zéro.
 - Cette automation réutilise la logique de suivi (changement de slot, fin d'impression, imprimante hors ligne) et le capteur `Active Tray` généré à l'origine pour SpoolmanSync. C'est pourquoi les entités gardent leur préfixe `spoolmansync_*` : elles correspondent à la configuration réellement testée. **Seul le capteur `Active Tray` est requis** ; le capteur `Filament Usage` et l'`utility_meter` sont spécifiques à l'option A et ne doivent pas être installés.
 - **Données :** `/config/stock/stock_filament.json`, avec une copie `.bak` du dernier état valide avant chaque écriture. Chaque opération est aussi journalisée dans `stock_filament_log.csv` (séparateur `;`, virgule décimale, ouvrable dans Excel).
 - **`sensor.stock_filament`** (intégration `command_line`) expose le tout. Son état est le nombre de références ; **`-1` signifie que le fichier JSON est illisible**. Il est actualisé après chaque action et toutes les heures.
@@ -24,21 +24,21 @@ La chaîne imprimante → SpoolmanSync (sur un NAS) → Home Assistant → Spool
 ![Tableau de bord du stock dans Home Assistant](../../docs/images/ha-stock-dashboard.jpg)
 
 - **Grille de pastilles :** une carte par filament, avec sa couleur réelle, son nom et le poids restant. « ⚠️ à saisir » s'affiche tant que le poids réel n'a pas été renseigné. Les filaments récemment utilisés apparaissent en premier.
-- **Recherche et filtres :** champ de recherche texte, filtre par matière (PLA, PETG…) et masquage des bobines vides.
+- **Recherche et filtres :** champ de recherche texte (recherche littérale : `PLA+` fonctionne), filtre par matière (PLA, PETG…) et masquage des bobines vides. Les bobines « ⚠️ à saisir » restent visibles même quand les vides sont masquées, pour pouvoir les initialiser.
 - **Sélection et ajustement :** on clique une pastille pour la sélectionner (badge vert), puis on saisit le poids et on appuie sur *Fixer (pesée)* ou *Ajouter (achat)*. Aucune saisie technique.
 - **Seuil d'alerte :** un champ dédié (`input_number.stock_filament_seuil_alerte`) déclenche une notification persistante quand une référence passe sous le seuil. 0 = alertes désactivées.
 - **Suppression :** un bouton dédié supprime la bobine sélectionnée, avec confirmation native Home Assistant. L'historique des débits reste dans le CSV, seule la référence disparaît de la grille.
-- Les assistants (sélection, recherche, filtre, grammes, seuil) sont déclarés dans `configuration.yaml`, une automation gère l'alerte et deux scripts exécutent les boutons.
+- Les assistants (sélection, recherche, filtre, grammes, seuil) sont déclarés dans `configuration.yaml`, une automation gère l'alerte et trois scripts exécutent les boutons.
 
-**À propos de l'affichage de la couleur.** Une pastille en HTML/CSS (`<span style="...">`) ne s'affichait pas dans la carte Markdown, vraisemblablement parce que Home Assistant filtre les styles inline. La solution est la même que celle des cartes Mushroom des slots du CFS : une petite image SVG intégrée (`data:image/svg+xml`) colorée avec le code couleur. La pastille emoji n'est plus utilisée dans le dashboard, mais reste disponible dans les attributs `dot` / `option` de `sensor.stock_filament` pour d'autres usages.
+**À propos de l'affichage de la couleur.** Une pastille en HTML/CSS (`<span style="...">`) ne s'affichait pas dans la carte Markdown, vraisemblablement parce que Home Assistant filtre les styles inline. La solution est la même que celle des cartes Mushroom des slots du CFS : une petite image SVG intégrée (`data:image/svg+xml`) colorée avec le code couleur. La pastille emoji (anciens attributs `dot` / `option`) a été abandonnée et retirée de `sensor.stock_filament`.
 
 ## Testé avec
 Home Assistant OS 18.5 et Creality WebSocket Integration ([ha_creality_ws](https://github.com/3dg1luk43/ha_creality_ws)) 0.9.10, sur une K2 Pro avec CFS. Les chemins supposent `/config`, et le script est lancé par `shell_command` avec `python3`. Cartes requises : `auto-entities` et `mushroom`.
 
 ## Installation
 1. Copie [`stock/stock_filament.py`](stock/stock_filament.py) dans `/config/stock/` (crée le dossier).
-2. Ajoute à ton `configuration.yaml` les blocs de [`configuration_extrait.yaml`](configuration_extrait.yaml), en remplaçant `k2pro_creality` par le préfixe des entités de ton imprimante. Fusionne-les avec tes blocs `template:`, `input_number:` et `utility_meter:` existants ; `input_text:`, `input_select:`, `input_boolean:`, `shell_command:` et `command_line:` sont nouveaux. L'`utility_meter` et le capteur `Filament Usage` sont un héritage de SpoolmanSync : ils ne sont pas lus par l'automation de l'option B, mais sont conservés pour compatibilité. Tu peux les supprimer si tu n'as jamais installé l'option A.
-3. Ajoute les **deux** automations de [`automations_extrait.yaml`](automations_extrait.yaml) (débit et alerte de stock bas), les deux scripts de [`scripts_extrait.yaml`](scripts_extrait.yaml) (ou crée-les dans l'interface : Paramètres > Automatisations et scènes > Scripts > Modifier en YAML) et la vue de tableau de bord de [`dashboard_extrait.yaml`](dashboard_extrait.yaml) (à coller dans la liste `views:` de ton tableau de bord, avec l'éditeur de configuration brut).
+2. Ajoute à ton `configuration.yaml` les blocs de [`configuration_extrait.yaml`](configuration_extrait.yaml), en remplaçant `k2pro_creality` par le préfixe des entités de ton imprimante. Fusionne-les avec tes blocs `template:` et `input_number:` existants ; `input_text:`, `input_select:`, `input_boolean:`, `shell_command:` et `command_line:` sont nouveaux. Le fichier ne contient ni `utility_meter` ni capteur `Filament Usage` : ils sont propres à l'option A et inutiles ici.
+3. Ajoute les **deux** automations de [`automations_extrait.yaml`](automations_extrait.yaml) (débit et alerte de stock bas), les trois scripts de [`scripts_extrait.yaml`](scripts_extrait.yaml) (ou crée-les dans l'interface : Paramètres > Automatisations et scènes > Scripts > Modifier en YAML) et la vue de tableau de bord de [`dashboard_extrait.yaml`](dashboard_extrait.yaml) (à coller dans la liste `views:` de ton tableau de bord, avec l'éditeur de configuration brut).
 4. Vérifie la configuration (Outils de développement > YAML), puis **redémarre** Home Assistant. Un simple rechargement ne suffit pas pour `shell_command`, `command_line` et les nouveaux assistants.
 5. **Teste sans imprimer**, dans Outils de développement > Actions : lance `shell_command.stock_filament_debit` avec `key: test_ffffff`, `label: Test PLA #ffffff`, `material: PLA` et `length_cm: 1000` (≈ -30 g), puis `homeassistant.update_entity` sur `sensor.stock_filament`. La pastille doit apparaître dans la grille.
 6. **Supprime l'entrée de test.** Lance `shell_command.stock_filament_remove` avec `query: Test PLA #ffffff`, puis `homeassistant.update_entity` sur `sensor.stock_filament`. Si tu n'as pas encore saisi de vrai stock, tu peux aussi simplement supprimer `/config/stock/stock_filament.json` (l'historique reste dans le CSV). **Ne modifie pas le JSON à la main** : une virgule en trop le rend illisible.
@@ -46,25 +46,39 @@ Home Assistant OS 18.5 et Creality WebSocket Integration ([ha_creality_ws](https
 ## Utilisation
 Une référence n'apparaît qu'à sa première consommation, avec un stock à 0 qui passe en négatif et la mention « ⚠️ à saisir ». Clique la pastille, saisis le poids réel de la bobine et appuie sur *Fixer (pesée)*. Ensuite, chaque impression le fait baisser automatiquement. Appuie sur *Ajouter (achat)* après l'achat d'une nouvelle bobine.
 
-Pour retirer une référence devenue inutile (bobine vide que vous ne remplacerez pas, doublon créé par erreur), cliquez sa pastille puis le bouton **Supprimer la bobine sélectionnée**. Une confirmation vous est demandée : l'action est irréversible côté JSON, mais l'historique des débits reste dans le CSV.
+Pour retirer une référence devenue inutile (bobine vide que tu ne remplaceras pas, doublon créé par erreur), clique sa pastille puis le bouton **Supprimer la bobine sélectionnée**. Une confirmation s'affiche : l'action est irréversible côté JSON, mais l'historique des débits reste dans le CSV.
 
 > **Pas de valeur initiale sur le champ « Grammes ».** Il démarre à 0 et rien n'est validé tant que tu n'as pas saisi un poids. C'est voulu : cela évite de faire croire à un stock de 1000 g fictif avant la première pesée.
 
 ## Dépannage
-- **Journaux « Command failed (with return code 1): python3 /config/stock/stock_filament.py dump » et « Empty reply found when expecting JSON data » :** `stock_filament.json` est invalide, typiquement après une modification manuelle (virgule en trop, accolade manquante). Corrige la syntaxe, restaure la copie `.bak`, ou supprime le fichier si tu n'as pas encore saisi ton stock (l'historique reste dans le CSV). Avec la version actuelle du script, le capteur affiche `-1` au lieu de produire une erreur, et les commandes d'écriture ne modifient rien.
+- **Journaux « Command failed (with return code 1): python3 /config/stock/stock_filament.py dump » et « Empty reply found when expecting JSON data » :** `stock_filament.json` est invalide, typiquement après une modification manuelle (virgule en trop, accolade manquante). Corrige la syntaxe, restaure la copie `.bak`, ou supprime le fichier si tu n'as pas encore saisi ton stock (l'historique reste dans le CSV). Avec la version actuelle du script, le capteur affiche `-1` au lieu de produire une erreur, et les commandes d'écriture ne modifient rien. Un débit survenu pendant ce temps n'est pas perdu sans trace : le script écrit une ligne `debit_perdu` dans le CSV, que tu peux rattraper à la main avec *Fixer (pesée)*.
 - **La grille de pastilles reste vide :** aucune consommation n'a encore été enregistrée, ou le script n'est pas à jour (mets-le à jour avant l'automation).
 - **Les boutons *Fixer* / *Ajouter* ne font rien :** aucune pastille n'est sélectionnée. Clique d'abord une pastille (badge vert), puis saisis le poids et appuie sur le bouton. Vérifie aussi l'identifiant des scripts créés via l'interface (Paramètres > Scripts) : les fichiers fournis utilisent `script.stock_filament_fixer_le_stock` et `script.stock_filament_ajouter_au_stock`.
 - **L'alerte de stock bas ne se déclenche pas :** vérifie que le seuil (`input_number.stock_filament_seuil_alerte`) est supérieur à 0, et que le filament a bien un stock saisi (`tracked: true`). Le seuil s'applique aux références dont le stock a déjà été pesé.
 - **Le débit ne se fait pas après une annulation ou un plantage :** vérifie que ton `automations_extrait.yaml` est bien à jour (le déclencheur `print_end` doit inclure `stopped` et `error`). Avec l'ancienne version, l'impression annulée pouvait ne jamais être débitée.
 - **La grille de pastilles n'affiche rien alors qu'un filament correspond au filtre :** vérifie que ton `dashboard_extrait.yaml` est à jour (le template `auto-entities` doit encadrer la liste par `[` et `]`). Avec l'ancienne version, une grille filtrée à un seul élément ne s'affichait pas.
+- **Une impression mono-slot est débitée sur la mauvaise référence :** vérifie que ton `automations_extrait.yaml` est à jour (la branche `print_start` doit mémoriser le slot actif dans `input_number.spoolmansync_k2pro_creality_last_tray`).
+- **Une bobine « ⚠️ à saisir » disparaît quand « Masquer les vides » est activé, ou la recherche `PLA+` ne trouve rien :** vérifie que ton `dashboard_extrait.yaml` est à jour (filtres littéraux, bobines non saisies toujours visibles).
 - **Un débit est compté deux fois après une pause :** vérifie que ton `automations_extrait.yaml` est à jour (bloc `conditions:` global et `value: '{{ current_length }}'` dans `print_end`/`offline`). Avec l'ancienne version, la reprise après pause remettait la référence à 0 et re-débitait le delta cumulé.
 
 ## Limites
 - Le suivi est **par référence, pas par bobine** : on sait combien on en a en tout, pas quelle bobine est la plus vide.
 - La précision dépend de la longueur de filament déclarée par l'imprimante : pèse une bobine de temps en temps pour recaler.
 - Une bobine sans puce sur le support externe est identifiée par son matériau, son nom et sa couleur saisis à l'écran. Si tu les modifies d'une fois sur l'autre, cela crée une nouvelle référence.
-- Le JSON inline généré par `auto-entities` peut casser si un nom de filament contient une apostrophe ou un guillemet. Évite ces caractères dans les noms de bobines.
-- L'alerte de stock bas utilise des notifications persistantes. Pour recevoir aussi une notification sur ton téléphone, décommente le bloc `notify.mobile_app_*` dans `automations_extrait.yaml`.
+- L'alerte de stock bas utilise des notifications persistantes. Pour recevoir aussi une notification sur ton téléphone, ajoute cette action à la fin de `actions:` dans l'automation d'alerte (remplace `ton_telephone` par le nom de ton appareil) :
+
+  ```yaml
+      - if:
+          - condition: template
+            value_template: "{{ newly_low | length > 0 }}"
+        then:
+          - action: notify.mobile_app_ton_telephone
+            data:
+              title: Stock filament bas
+              message: |-
+                {% for i in newly_low %}- {{ i.label }} : {{ i.stock_g | round(0) | int }} g
+                {% endfor %}
+  ```
 - Une impression **mise en pause** n'est pas débitée au moment de la pause, mais au prochain `stopped`, `error`, `completed` ou `idle`. Le débit est donc correct, mais peut apparaître en une seule fois à la reprise.
 
 ## Fichiers

@@ -18,16 +18,19 @@ sections:
         heading_style: title
         icon: mdi:package-variant-closed
       - type: markdown
-        content: >-
-          {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
-          {% set q = states('input_text.stock_filament_recherche') | lower | trim %}
-          {% set mat = states('input_select.stock_filament_filtre_matiere') %}
-          {% set masquer = is_state('input_boolean.stock_filament_masquer_vides', 'on') %}
-          {% set visibles = items %}
-          {% if mat != 'Tous' %}{% set visibles = visibles | selectattr('label', 'search', mat, 'ignorecase') | list %}{% endif %}
-          {% if q %}{% set visibles = visibles | selectattr('label', 'search', q, 'ignorecase') | list %}{% endif %}
-          {% if masquer %}{% set visibles = visibles | rejectattr('stock_g', 'le', 0) | list %}{% endif %}
-          **{{ visibles | length }} / {{ items | length }} bobines affichees** · Total suivi : {{ (state_attr('sensor.stock_filament', 'total_g') or 0) | round(0) | int }} g
+        content: |-
+          {%- set items = state_attr('sensor.stock_filament', 'items') or [] -%}
+          {%- set q = states('input_text.stock_filament_recherche') | lower | trim -%}
+          {%- set mat = states('input_select.stock_filament_filtre_matiere') | lower -%}
+          {%- set masquer = is_state('input_boolean.stock_filament_masquer_vides', 'on') -%}
+          {%- set ns = namespace(v=[]) -%}
+          {%- for i in items -%}
+            {%- set lab = i.label | lower -%}
+            {%- if (mat == 'tous' or mat in lab) and (q == '' or q in lab) and (not masquer or not i.tracked or i.stock_g > 0) -%}
+              {%- set ns.v = ns.v + [i] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          **{{ ns.v | length }} / {{ items | length }} bobines affichees** · Total suivi : {{ (state_attr('sensor.stock_filament', 'total_g') or 0) | round(0) | int }} g
       - type: custom:mushroom-template-card
         primary: Recherche
         secondary: >-
@@ -56,30 +59,26 @@ sections:
     card_param: cards
     show_empty: false
     filter:
-      template: >-
-        {% set items = state_attr('sensor.stock_filament', 'items') or [] %}
-        {% set q = states('input_text.stock_filament_recherche') | lower | trim %}
-        {% set mat = states('input_select.stock_filament_filtre_matiere') %}
-        {% set masquer = is_state('input_boolean.stock_filament_masquer_vides', 'on') %}
-        {% set selection = states('input_text.stock_filament_selection') %}
-        {% if mat != 'Tous' %}
-          {% set items = items | selectattr('label', 'search', mat, 'ignorecase') | list %}
-        {% endif %}
-        {% if q %}
-          {% set items = items | selectattr('label', 'search', q, 'ignorecase') | list %}
-        {% endif %}
-        {% if masquer %}
-          {% set items = items | rejectattr('stock_g', 'le', 0) | list %}
-        {% endif %}
-        {% set items = items | sort(attribute='label') %}
-        {% set utilises = items | selectattr('last_used', 'defined') | list %}
-        {% set autres = items | rejectattr('last_used', 'defined') | list %}
-        {% set utilises = utilises | sort(attribute='last_used', reverse=true) %}
-        {% set items = utilises + autres %}
+      template: |-
+        {%- set items = state_attr('sensor.stock_filament', 'items') or [] -%}
+        {%- set q = states('input_text.stock_filament_recherche') | lower | trim -%}
+        {%- set mat = states('input_select.stock_filament_filtre_matiere') | lower -%}
+        {%- set masquer = is_state('input_boolean.stock_filament_masquer_vides', 'on') -%}
+        {%- set selection = states('input_text.stock_filament_selection') -%}
+        {%- set ns = namespace(v=[]) -%}
+        {%- for i in items -%}
+          {%- set lab = i.label | lower -%}
+          {%- if (mat == 'tous' or mat in lab) and (q == '' or q in lab) and (not masquer or not i.tracked or i.stock_g > 0) -%}
+            {%- set ns.v = ns.v + [i] -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- set utilises = ns.v | selectattr('last_used', 'defined') | sort(attribute='last_used', reverse=true) | list -%}
+        {%- set autres = ns.v | rejectattr('last_used', 'defined') | sort(attribute='label') | list -%}
+        {%- set items = utilises + autres -%}
         [{% for i in items %} {
           "type": "custom:mushroom-template-card",
           "entity": "sensor.stock_filament",
-          "primary": "{{ i.name or i.label }}",
+          "primary": {{ (i.name or i.label) | tojson }},
           "secondary": "{% if i.tracked %}{{ i.stock_g | round(0) | int }} g{% else %}⚠️ a saisir{% endif %}",
           "icon": "mdi:spool",
           "icon_color": "{% if i.color %}#{{ i.color }}{% else %}grey{% endif %}",

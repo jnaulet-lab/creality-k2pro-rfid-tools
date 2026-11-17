@@ -2,8 +2,8 @@
 # Remplacez 'k2pro_creality' par le prefixe des entites de VOTRE imprimante
 # (integration Home Assistant Creality). Les noms 'spoolmansync_*' sont conserves
 # tels quels : ils correspondent a la configuration reellement testee.
-# Si votre configuration.yaml contient deja un bloc 'template:', 'input_number:'
-# ou 'utility_meter:', FUSIONNEZ ces blocs au lieu de les dupliquer.
+# Si votre configuration.yaml contient deja un bloc 'template:', 'input_number:',
+# 'shell_command:' ou 'command_line:', FUSIONNEZ ces blocs au lieu de les dupliquer.
 
 # Helper de suivi du dernier slot actif (composite 0/11/12/13/14)
 input_number:
@@ -70,24 +70,13 @@ input_select:
       - "ASA"
       - "TPU"
 
-# Masque les bobines dont le stock est a 0 g ou negatif (bobines vides).
+# Masque les bobines SUIVIES dont le stock est a 0 g ou negatif (bobines vides).
+# Les bobines 'a saisir' (stock jamais renseigne) restent visibles pour pouvoir
+# les initialiser.
 input_boolean:
   stock_filament_masquer_vides:
     name: "Stock filament - Masquer les bobines vides"
     icon: mdi:eye-off-outline
-
-# =============================================================================
-# Heritage SpoolmanSync (option A). NON utilise par l'automation de l'option B,
-# qui calcule le debit par delta sur sensor.k2pro_creality_used_material_length.
-# Conserve car le capteur 'Active Tray' (plus bas) en depend, et parce que
-# certains utilisateurs ont les deux options dans leur historique.
-# Vous pouvez supprimer ce bloc si vous n'avez jamais installe l'option A.
-# =============================================================================
-utility_meter:
-  spoolmansync_k2pro_creality_filament_usage_meter:
-    unique_id: spoolmansync-k2pro_creality-filament-usage-meter
-    source: sensor.spoolmansync_k2pro_creality_filament_usage
-    always_available: true
 
 # =============================================================================
 # Stock de filament : script Python + fichier JSON dans /config/stock
@@ -115,21 +104,8 @@ command_line:
         - items
 
 template:
-  # --- SpoolmanSync : capteurs de suivi du filament (k2pro_creality) ---
+  # --- Capteur du slot actif du CFS (k2pro_creality) ---
   - sensor:
-      # k2pro_creality: Track filament usage during print (Creality - cm)
-      # Heritage SpoolmanSync : alimente l'utility_meter ci-dessus. NON lu par
-      # l'automation de l'option B (qui utilise directement
-      # sensor.k2pro_creality_used_material_length). Peut etre supprime si vous
-      # n'avez jamais installe l'option A.
-      - name: "SpoolmanSync k2pro_creality Filament Usage"
-        unique_id: spoolmansync-k2pro_creality-filament-usage
-        unit_of_measurement: "cm"
-        state: >
-          {{ states('sensor.k2pro_creality_used_material_length') | float(0) }}
-        availability: >
-          {{ states('sensor.k2pro_creality_used_material_length') not in ['unknown', 'unavailable'] }}
-
       # k2pro_creality: Detect active CFS slot from all sensors
       # REQUIS par l'option B : l'automation de debit lit ce capteur.
       - name: "SpoolmanSync k2pro_creality Active Tray"
